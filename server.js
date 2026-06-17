@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const https = require('https');
 const qvac = require('@qvac/sdk');
 const PQueue = require('p-queue').default;
 const { createProvider } = require('./hyperswarm-bridge');
@@ -34,6 +35,7 @@ const sttQueue = new PQueue({ concurrency: 1 });
 
 let medgemmaId = null;
 let whisperId = null;
+let embeddingModelId = null;
 
 function convertToWav(inputBuffer) {
   return new Promise((resolve, reject) => {
@@ -120,11 +122,56 @@ async function complete(prompt) {
   return text;
 }
 
-async function runPipeline(transcript) {
+async function runPipeline(transcript, patientId = null) {
+  let historicalContext = '';
+  if (patientId && embeddingModelId) {
+    try {
+      console.log(`Searching RAG clinical history for patientId: ${patientId}`);
+      const searchResult = await qvac.ragSearch({
+        modelId: embeddingModelId,
+        query: `Patient ${patientId}`,
+        topK: 3,
+        workspace: "med-scribe-clinical-history"
+      });
+      if (searchResult && searchResult.length > 0) {
+        historicalContext = searchResult.map(r => r.content).join('\n');
+        console.log(`Retrieved RAG context:\n${historicalContext}`);
+      } else {
+        console.log('No historical context found in RAG.');
+      }
+    } catch (e) {
+      console.error('RAG search during pipeline failed:', e);
+    }
+  }
+
   const extracted = await complete(`Extract all medical entities from this transcript. Return JSON only with fields: symptoms, medications, vitals, allergies, history. Transcript: "${truncate(transcript, 600)}"`);
-  const soap = await complete(`Using these medical entities, generate a structured SOAP note. Be concise. Entities: ${truncate(extracted, 800)}`);
+  
+  let soapPrompt = `Using these medical entities, generate a structured SOAP note. Be concise. Entities: ${truncate(extracted, 800)}`;
+  if (historicalContext) {
+    soapPrompt = `Historical clinical history for this patient:\n${truncate(historicalContext, 1000)}\n\nUsing the medical entities from the current visit and incorporating any relevant past history, generate a structured SOAP note. Be concise. Entities: ${truncate(extracted, 800)}`;
+  }
+  const soap = await complete(soapPrompt);
+  
   const audit = await complete(`Review this SOAP note. Return JSON only with: score (0-100), missing_fields (array), recommendations (array). SOAP note: ${truncate(soap, 1200)}`);
-  return { extracted, soap, audit };
+
+  if (patientId && embeddingModelId && soap) {
+    (async () => {
+      try {
+        console.log(`Ingesting SOAP note to RAG for patientId: ${patientId}`);
+        const cleanSoap = soap.replace(/```json|```/g, '').trim();
+        await qvac.ragIngest({
+          modelId: embeddingModelId,
+          documents: [`Patient ${patientId}: ${cleanSoap}`],
+          workspace: "med-scribe-clinical-history"
+        });
+        console.log(`Successfully ingested SOAP note to RAG for patientId: ${patientId}`);
+      } catch (e) {
+        console.error('Background SOAP ingestion to RAG failed:', e);
+      }
+    })();
+  }
+
+  return { extracted, soap, audit, historicalContext };
 }
 
 async function init() {
@@ -142,6 +189,17 @@ async function init() {
   });
   console.log('Whisper loaded:', whisperId);
 
+  try {
+    console.log('Loading EmbeddingGemma model...');
+    embeddingModelId = await qvac.loadModel({
+      modelSrc: qvac.EMBEDDINGGEMMA_300M_Q4_0.src,
+      modelType: 'llamacpp-embedding'
+    });
+    console.log('EmbeddingGemma loaded:', embeddingModelId);
+  } catch (err) {
+    console.error('Failed to load EmbeddingGemma model:', err);
+  }
+
   await createProvider(async (msg) => {
     if (msg.type === 'transcribe') {
       const buffer = await getTranscodedAudio(msg.audio);
@@ -149,7 +207,7 @@ async function init() {
       return { type: 'transcript', transcript };
     }
     if (msg.type === 'audit') {
-      const result = await runPipeline(msg.transcript);
+      const result = await runPipeline(msg.transcript, msg.patientId);
       return { type: 'result', ...result };
     }
     return { type: 'error', error: 'unknown message type' };
@@ -199,17 +257,53 @@ app.post('/transcribe', async (req, res) => {
 });
 
 app.post('/audit', async (req, res) => {
-  const { transcript } = req.body;
+  const { transcript, patientId } = req.body;
   if (!transcript) return res.status(400).json({ error: 'transcript required' });
 
   llmQueue.add(async () => {
     try {
-      const result = await runPipeline(transcript);
+      const result = await runPipeline(transcript, patientId);
       res.json(result);
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
   });
+});
+
+app.post('/ingest', async (req, res) => {
+  const { patientId, note } = req.body;
+  if (!patientId || !note) {
+    return res.status(400).json({ error: 'patientId and note required' });
+  }
+  try {
+    const doc = `Patient ${patientId}: ${note}`;
+    const ingestResult = await qvac.ragIngest({
+      modelId: embeddingModelId,
+      documents: [doc],
+      workspace: "med-scribe-clinical-history"
+    });
+    res.json({ success: true, result: ingestResult });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/rag-search', async (req, res) => {
+  const { patientId } = req.body;
+  if (!patientId) {
+    return res.status(400).json({ error: 'patientId required' });
+  }
+  try {
+    const searchResult = await qvac.ragSearch({
+      modelId: embeddingModelId,
+      query: `Patient ${patientId}`,
+      topK: 3,
+      workspace: "med-scribe-clinical-history"
+    });
+    res.json({ results: searchResult });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/extract', async (req, res) => {
@@ -285,7 +379,13 @@ app.get('/metrics', (_, res) => {
 });
 
 init().then(() => {
-  const server = app.listen(3001, () => console.log('Server running on :3001'));
+  const sslOptions = {
+    key: fs.readFileSync('/home/xbt/med-scribe/ssl/key.pem'),
+    cert: fs.readFileSync('/home/xbt/med-scribe/ssl/cert.pem')
+  };
+  const server = https.createServer(sslOptions, app).listen(3001, () => {
+    console.log('Secure HTTPS server running on :3001');
+  });
   server.timeout = 0;
   server.keepAliveTimeout = 0;
   server.headersTimeout = 0;

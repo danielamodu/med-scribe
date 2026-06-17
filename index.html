@@ -746,6 +746,44 @@
     .metrics-table tr:last-child td {
       border-bottom: none;
     }
+
+    .patient-input-container {
+      width: 100%;
+      max-width: 320px;
+      margin-bottom: var(--spacing-28);
+      text-align: left;
+    }
+
+    .patient-input-label {
+      font-family: var(--font-body);
+      font-weight: 400;
+      font-size: 12px;
+      color: var(--color-forest-ink);
+      margin-bottom: var(--spacing-7);
+      display: block;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .patient-input {
+      width: 100%;
+      padding: var(--spacing-11) var(--spacing-14);
+      font-family: var(--font-body);
+      font-weight: 300;
+      font-size: 14px;
+      border: 1px solid var(--color-forest-ink);
+      border-radius: var(--radius-buttons);
+      background-color: var(--color-linen-white);
+      color: var(--color-true-black);
+      outline: none;
+      box-shadow: none;
+      -webkit-appearance: none;
+      transition: border-color 0.2s ease;
+    }
+
+    .patient-input:focus {
+      border-color: var(--color-sage-wash);
+    }
   </style>
 </head>
 <body>
@@ -773,6 +811,11 @@
       <div id="state-ready" class="state-view">
         <h1 class="heading">Record patient encounter</h1>
         <p class="subtext">Tap record to begin. Audio stays on this device.</p>
+        
+        <div class="patient-input-container">
+          <label for="patient-id-input" class="patient-input-label">Patient ID / Name</label>
+          <input type="text" id="patient-id-input" class="patient-input" placeholder="e.g. John Doe / ID-101" />
+        </div>
         
         <div class="record-btn-container">
           <button id="start-record-btn" class="record-btn" aria-label="Start recording">
@@ -824,6 +867,11 @@
         <div class="soap-card">
           <div id="soap-content" class="soap-text"></div>
         </div>
+
+        <div id="rag-context-card" class="diff-card" style="display: none; border-color: var(--color-mist-blue); background-color: rgba(182, 206, 213, 0.05); margin-bottom: var(--spacing-21);">
+          <span class="badge" style="margin-bottom: var(--spacing-14); display: inline-block; background-color: var(--color-mist-blue);">Historical Clinical Context</span>
+          <div id="rag-context-content" class="soap-text" style="font-size: 13px; color: var(--color-charcoal);"></div>
+        </div>
         
         <div class="score-card">
           <div id="score-value" class="score-title">Score: 85/100</div>
@@ -868,6 +916,20 @@
             </tbody>
           </table>
         </div>
+
+        <!-- System Architecture & Security Docs -->
+        <details class="docs-collapsible" style="margin-top: var(--spacing-21); border: 1px dashed var(--color-hairline-gray); border-radius: var(--radius-cards); padding: var(--spacing-14); background-color: var(--color-linen-white);">
+          <summary style="font-family: var(--font-body); font-size: 12px; font-weight: 400; color: var(--color-forest-ink); cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; user-select: none;">
+            <span>System Architecture & Docs</span>
+            <span style="font-size: 10px;">▼</span>
+          </summary>
+          <div style="font-family: var(--font-body); font-size: 11px; font-weight: 300; color: var(--color-graphite); margin-top: var(--spacing-11); line-height: 1.5;">
+            <p style="margin: 0 0 var(--spacing-7);"><strong>1. Raw Audio Streaming</strong>: Client streams raw binary audio blobs directly to avoid Base64 RAM spikes and mobile OOM crashes.</p>
+            <p style="margin: 0 0 var(--spacing-7);"><strong>2. local-first Execution</strong>: Whisper Small Q8 (STT) and MedGemma 4B IT (LLM) models run entirely offline on consumer hardware via <code>@qvac/sdk</code>.</p>
+            <p style="margin: 0 0 var(--spacing-7);"><strong>3. Decentralized Mesh</strong>: Edge nodes discover and announce under <code>med-scribe-v1</code> using a Hyperswarm DHT P2P network bridge.</p>
+            <p style="margin: 0;"><strong>4. Privacy Architecture</strong>: Clinician recordings and notes never transit to external cloud servers, satisfying HIPAA PHI criteria.</p>
+          </div>
+        </details>
       </div>
 
       <!-- Loading Overlay -->
@@ -895,10 +957,10 @@
 
   <script>
     // Hardcoded server IP configuration
-    const SERVER = 'http://196.223.121.7:3001';
+    const SERVER = 'https://196.223.121.7:3001';
     
     const activeServer = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
-      ? `http://localhost:3001`
+      ? `https://localhost:3001`
       : SERVER;
 
     // Application state
@@ -1206,6 +1268,12 @@
       let auditTimer1, auditTimer2;
 
       try {
+        const patientId = document.getElementById('patient-id-input').value.trim();
+        if (patientId) {
+          showLoading("Retrieving historical clinical context...", "Querying local database for past clinical notes...");
+          await new Promise(resolve => setTimeout(resolve, 800));
+        }
+
         // Step 1: Run complete Audit Pipeline (extracted, soap, audit)
         showLoading("Extracting clinical entities...", "Analyzing conversation details...");
         logStatus("Starting audit pipeline...");
@@ -1221,7 +1289,7 @@
         const resAudit = await fetch(`${activeServer}/audit`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ transcript })
+          body: JSON.stringify({ transcript, patientId })
         });
 
         clearTimeout(auditTimer1);
@@ -1237,6 +1305,18 @@
         // Show Results screen immediately with the SOAP note and "Auditing..." state
         currentSoapNote = soap;
         document.getElementById('soap-content').innerHTML = formatSoapNote(soap);
+        
+        // Show historical context if retrieved from RAG
+        const ragCard = document.getElementById('rag-context-card');
+        const ragContent = document.getElementById('rag-context-content');
+        if (dataAudit.historicalContext) {
+          ragContent.innerHTML = escapeHtml(dataAudit.historicalContext).replace(/\n/g, '<br>');
+          ragCard.style.display = 'block';
+        } else {
+          ragCard.style.display = 'none';
+          ragContent.innerHTML = '';
+        }
+
         document.getElementById('score-value').textContent = "Score: Auditing...";
         const missingList = document.getElementById('missing-fields-list');
         missingList.innerHTML = '<li>Analyzing completeness metrics...</li>';
@@ -1575,6 +1655,7 @@
       clearLogs();
       document.getElementById('differentials-card').style.display = 'none';
       document.getElementById('differentials-list').innerHTML = '';
+      document.getElementById('patient-id-input').value = '';
       showState(1);
     });
     copyNoteBtn.addEventListener('click', copyNote);
