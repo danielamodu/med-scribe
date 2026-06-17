@@ -10,16 +10,16 @@ Zero cloud. Zero internet. Fully HIPAA-compliant transit. Zero data leaves the c
 
 ## What it does
 
-1. **Patient Identifier Capture**: Doctor inputs a Patient ID/Name.
-2. **On-Device History RAG**: Server queries local vector database (`EmbeddingGemma`) for past notes matching that patient.
+1. **Patient Identifier Capture**: Doctor inputs a Patient ID and Name.
+2. **On-Device History RAG**: Server queries the local vector database (`EmbeddingGemma`) for past notes matching the Patient ID. The client displays a history timeline of past visits in a dedicated tab for quick reference.
 3. **Audio Capture**: Doctor records the encounter. Raw binary streams are sent to prevent base64 memory spikes.
 4. **Local Transcription**: Whisper EN Small transcribes the encounter on the local WSL2 server.
 5. **Prompt Augmentation**: Historical records retrieved via RAG are dynamically injected as context into the SOAP prompt.
-6. **Multi-Agent Pipeline**:
-   - **Extractor** — pulls symptoms, medications, vitals, allergies, and history.
-   - **Formatter** — structures entities into a SOAP note incorporating past context.
-   - **Auditor** — scores completeness (0–100) and lists missing items.
-   - **Differentials** — suggests three potential differential diagnoses.
+6. **Agentic Documentation & Auditing Pipeline**:
+   - **SOAP Note & Entity Extraction Agent** — A single-stage MedGemma 4B completion call that generates the structured clinical SOAP Note and extracts key medical entity arrays (symptoms, medications, vitals, allergies, history) in one pass, reducing LLM cold-starts.
+   - **Quality Auditor** — A programmatic checklist validator that parses the generated SOAP note and extracted entities to score documentation completeness (0-100), identify omissions (like missing patient details or vitals), and provide guidelines.
+   - **Differential Diagnoses Agent** — A secondary MedGemma 4B call that evaluates the SOAP Note and suggests three clinical differentials for review.
+   - **Follow-Up Questions Agent** — An interactive sub-agent that triggers on-click to generate 3 high-yield questions the clinician can ask to confirm or rule out a selected differential diagnosis.
 7. **Background Auto-Ingestion**: The completed SOAP note is automatically indexed back into the RAG database for future visits.
 
 All inference runs locally via `@qvac/sdk`. No API calls leave the device pair.
@@ -137,7 +137,7 @@ node verify-rag.js
 | `/transcribe` | POST | raw binary body | `{ transcript }` |
 | `/ingest` | POST | `{ patientId, note }` | `{ success, result }` |
 | `/rag-search` | POST | `{ patientId }` | `{ results }` |
-| `/audit` | POST | `{ transcript, patientId }` | `{ extracted, soap, audit, historicalContext }` |
+| `/audit` | POST | `{ transcript, patientId, patientName }` | `{ extracted, soap, audit, historicalContext }` |
 | `/differentials`| POST | `{ soap }` | `{ differentials }` |
 | `/health` | GET | — | `{ status, medgemmaId, whisperId }` |
 

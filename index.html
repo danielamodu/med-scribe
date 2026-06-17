@@ -362,12 +362,8 @@
     /* Results layout */
     .soap-card {
       background-color: var(--color-linen-white);
-      border: 1px solid var(--color-hairline-gray);
-      border-radius: var(--radius-cards);
-      padding: var(--card-padding);
+      padding: var(--spacing-14) 0;
       margin-bottom: var(--spacing-21);
-      max-height: 260px;
-      overflow-y: auto;
       text-align: left;
       width: 100%;
     }
@@ -437,9 +433,38 @@
 
     .diff-item-row {
       display: flex;
+      flex-direction: column;
+      border-bottom: 1px solid var(--color-hairline-gray);
+      padding: var(--spacing-11) var(--spacing-4);
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    .diff-item-row:last-child {
+      border-bottom: none;
+    }
+
+    .diff-item-row:hover {
+      background-color: rgba(15, 62, 23, 0.02);
+    }
+
+    .diff-item-header {
+      display: flex;
       align-items: flex-start;
       gap: var(--spacing-7);
-      margin-bottom: var(--spacing-11);
+      width: 100%;
+    }
+
+    .diff-item-followups {
+      margin-top: var(--spacing-9);
+      padding: var(--spacing-9) var(--spacing-14);
+      background-color: var(--color-linen-white);
+      border-left: 2px solid var(--color-mist-blue);
+      font-size: 12px;
+      color: var(--color-charcoal);
+      line-height: 1.5;
+      animation: fadeIn 0.3s ease;
+      cursor: default;
     }
 
     .diff-item-num {
@@ -471,7 +496,8 @@
     }
 
     .score-card {
-      background-color: var(--color-mint-veil);
+      background-color: var(--color-linen-white);
+      border: 1px solid var(--color-hairline-gray);
       border-radius: var(--radius-cards);
       padding: var(--card-padding);
       margin-bottom: var(--spacing-28);
@@ -482,36 +508,58 @@
     .score-title {
       font-family: var(--font-body);
       font-weight: 300;
-      font-size: 23px;
+      font-size: 18px;
       color: var(--color-forest-ink);
-      letter-spacing: -0.69px;
+      letter-spacing: -0.54px;
       line-height: 1.3;
-      margin-bottom: var(--spacing-11);
+      margin-bottom: var(--spacing-14);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--color-hairline-gray);
+      padding-bottom: var(--spacing-11);
+    }
+
+    .score-badge {
+      font-size: 13px;
+      font-weight: 400;
+      color: #ffffff;
+      background-color: var(--color-forest-ink);
+      padding: 4px 12px;
+      border-radius: 999px;
     }
 
     .missing-section {
-      margin-top: var(--spacing-11);
+      margin-top: var(--spacing-7);
     }
 
     .missing-title {
       font-family: var(--font-body);
       font-weight: 400;
-      font-size: 12px;
+      font-size: 11px;
       color: var(--color-charcoal);
-      letter-spacing: -0.36px;
-      margin-bottom: var(--spacing-7);
+      letter-spacing: -0.3px;
+      margin-bottom: var(--spacing-11);
       text-transform: uppercase;
     }
 
     .missing-list {
       margin: 0;
-      padding-left: var(--spacing-18);
+      padding: 0;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-7);
+    }
+
+    .missing-item {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-7);
       font-family: var(--font-body);
       font-weight: 400;
-      font-size: 12px;
+      font-size: 13px;
       color: var(--color-charcoal);
-      letter-spacing: -0.36px;
-      line-height: 1.5;
     }
 
     .action-buttons {
@@ -784,6 +832,34 @@
     .patient-input:focus {
       border-color: var(--color-sage-wash);
     }
+
+    .patient-input-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--spacing-14);
+      width: 100%;
+      max-width: 320px;
+      margin-bottom: var(--spacing-28);
+      text-align: left;
+    }
+
+    .past-encounter-card {
+      border: 1px solid var(--color-hairline-gray);
+      border-radius: var(--radius-cards);
+      padding: var(--card-padding);
+      background-color: var(--color-linen-white);
+      text-align: left;
+      margin-bottom: var(--spacing-14);
+    }
+
+    .past-encounter-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--color-hairline-gray);
+      padding-bottom: var(--spacing-7);
+      margin-bottom: var(--spacing-11);
+    }
   </style>
 </head>
 <body>
@@ -798,8 +874,9 @@
 
     <!-- Pill Toggle (Just below the header) -->
     <div class="toggle-container">
-      <div class="toggle-pill">
+      <div class="toggle-pill" style="max-width: 260px;">
         <button id="toggle-note-btn" class="toggle-btn active">Note</button>
+        <button id="toggle-history-btn" class="toggle-btn">History</button>
         <button id="toggle-metrics-btn" class="toggle-btn">Metrics</button>
       </div>
     </div>
@@ -812,9 +889,15 @@
         <h1 class="heading">Record patient encounter</h1>
         <p class="subtext">Tap record to begin. Audio stays on this device.</p>
         
-        <div class="patient-input-container">
-          <label for="patient-id-input" class="patient-input-label">Patient ID / Name</label>
-          <input type="text" id="patient-id-input" class="patient-input" placeholder="e.g. John Doe / ID-101" />
+        <div class="patient-input-grid">
+          <div>
+            <label for="patient-id-input" class="patient-input-label">Patient ID</label>
+            <input type="text" id="patient-id-input" class="patient-input" placeholder="e.g. 101" />
+          </div>
+          <div>
+            <label for="patient-name-input" class="patient-input-label">Patient Name</label>
+            <input type="text" id="patient-name-input" class="patient-input" placeholder="e.g. John Doe" />
+          </div>
         </div>
         
         <div class="record-btn-container">
@@ -932,6 +1015,18 @@
         </details>
       </div>
 
+      <!-- History View -->
+      <div id="view-history" class="state-view" style="display: none; align-items: stretch; text-align: left; width: 100%;">
+        <h1 class="heading" style="color: var(--color-forest-ink); font-weight: 300; margin-bottom: var(--spacing-4);">Patient History</h1>
+        <p class="subtext" style="margin-bottom: var(--spacing-21); font-weight: 300;">Past clinical records from secure local RAG database</p>
+        
+        <div id="history-content-container" style="display: flex; flex-direction: column; gap: var(--spacing-14); width: 100%;">
+          <div style="text-align: center; color: var(--color-charcoal); padding: var(--spacing-21); border: 1px dashed var(--color-hairline-gray); border-radius: var(--radius-cards); font-weight: 300;">
+            Enter a Patient ID on the main screen to retrieve past history.
+          </div>
+        </div>
+      </div>
+
       <!-- Loading Overlay -->
       <div id="loading-overlay" class="loading-view" style="display: none;">
         <div class="spinner"></div>
@@ -956,12 +1051,8 @@
   </div>
 
   <script>
-    // Hardcoded server IP configuration
-    const SERVER = 'https://196.223.121.7:3001';
-    
-    const activeServer = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
-      ? `https://localhost:3001`
-      : SERVER;
+    // Dynamic server configuration based on the page's origin
+    const activeServer = `${window.location.protocol}//${window.location.hostname}:${window.location.port || '3001'}`;
 
     // Application state
     let isConnected = false;
@@ -995,9 +1086,15 @@
     const loadingText = document.getElementById('loading-text');
     const loadingSubtext = document.getElementById('loading-subtext');
     
+    const patientNameInput = document.getElementById('patient-name-input');
+
     // Toggle Buttons
     const toggleNoteBtn = document.getElementById('toggle-note-btn');
+    const toggleHistoryBtn = document.getElementById('toggle-history-btn');
     const toggleMetricsBtn = document.getElementById('toggle-metrics-btn');
+
+    // View containers
+    const viewHistory = document.getElementById('view-history');
 
     // Logging helpers
     function logStatus(msg) {
@@ -1056,7 +1153,7 @@
         } else {
           connectionBadge.textContent = "Connecting...";
           connectionBadge.classList.add('connecting');
-          connectionStrip.textContent = "Searching for laptop provider at " + SERVER + "...";
+          connectionStrip.textContent = "Searching for laptop provider at " + activeServer + "...";
         }
       }
     }
@@ -1074,12 +1171,21 @@
         stateRecording.style.display = (state === 2) ? 'flex' : 'none';
         stateResults.style.display = (state === 3) ? 'flex' : 'none';
         viewMetrics.style.display = 'none';
+        viewHistory.style.display = 'none';
         connectionStrip.style.display = (state === 3) ? 'none' : 'block';
+      } else if (currentTab === 'history') {
+        stateReady.style.display = 'none';
+        stateRecording.style.display = 'none';
+        stateResults.style.display = 'none';
+        viewMetrics.style.display = 'none';
+        viewHistory.style.display = 'flex';
+        connectionStrip.style.display = 'none';
       } else {
         stateReady.style.display = 'none';
         stateRecording.style.display = 'none';
         stateResults.style.display = 'none';
         viewMetrics.style.display = 'flex';
+        viewHistory.style.display = 'none';
         connectionStrip.style.display = 'none';
       }
 
@@ -1269,6 +1375,7 @@
 
       try {
         const patientId = document.getElementById('patient-id-input').value.trim();
+        const patientName = patientNameInput ? patientNameInput.value.trim() : '';
         if (patientId) {
           showLoading("Retrieving historical clinical context...", "Querying local database for past clinical notes...");
           await new Promise(resolve => setTimeout(resolve, 800));
@@ -1289,7 +1396,7 @@
         const resAudit = await fetch(`${activeServer}/audit`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ transcript, patientId })
+          body: JSON.stringify({ transcript, patientId, patientName })
         });
 
         clearTimeout(auditTimer1);
@@ -1404,20 +1511,72 @@
 
       if (items.length === 0) {
         const lines = cleaned.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-        return lines.map(line => `
-          <div class="diff-item-row">
-            <p class="diff-item-content">${escapeHtml(line)}</p>
+        return lines.map((line, idx) => `
+          <div class="diff-item-row" onclick="fetchFollowupQuestions(this, ${idx})">
+            <div class="diff-item-header">
+              <p class="diff-item-content">${escapeHtml(line)}</p>
+            </div>
+            <div class="diff-item-followups" style="display: none;"></div>
           </div>
         `).join('');
       }
 
       return items.map(item => `
-        <div class="diff-item-row">
-          <span class="diff-item-num">${item.num}.</span>
-          <p class="diff-item-content">${escapeHtml(item.content)}</p>
+        <div class="diff-item-row" onclick="fetchFollowupQuestions(this, ${item.num})">
+          <div class="diff-item-header">
+            <span class="diff-item-num">${item.num}.</span>
+            <p class="diff-item-content">${escapeHtml(item.content)}</p>
+          </div>
+          <div class="diff-item-followups" style="display: none;"></div>
         </div>
       `).join('');
     }
+
+    window.fetchFollowupQuestions = async function(element, id) {
+      if (window.event && window.event.target.closest('.diff-item-followups')) {
+        return;
+      }
+
+      const followupDiv = element.querySelector('.diff-item-followups');
+      if (!followupDiv) return;
+
+      if (followupDiv.style.display === 'block') {
+        followupDiv.style.display = 'none';
+        return;
+      }
+
+      if (followupDiv.innerHTML !== '') {
+        followupDiv.style.display = 'block';
+        return;
+      }
+
+      const diagnosisText = element.querySelector('.diff-item-content').textContent;
+      
+      followupDiv.innerHTML = '<span style="font-family: var(--font-body); font-style: italic; color: var(--color-forest-ink); font-weight: 300;">Analyzing follow-ups...</span>';
+      followupDiv.style.display = 'block';
+
+      try {
+        const res = await fetch(`${activeServer}/differentials/questions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ soap: currentSoapNote, diagnosis: diagnosisText })
+        });
+        
+        if (!res.ok) throw new Error("Questions request failed with status " + res.status);
+        const data = await res.json();
+        
+        const formattedQuestions = data.questions
+          .replace(/```json|```/g, '')
+          .replace(/\*\*(.*?)\*\*/g, '$1')
+          .trim();
+          
+        followupDiv.innerHTML = `<strong style="font-weight: 400; display: block; margin-bottom: var(--spacing-4);">Suggested Clinical Follow-up:</strong>` + 
+          escapeHtml(formattedQuestions).replace(/\n/g, '<br>');
+      } catch (err) {
+        console.error("Failed to fetch follow-ups:", err);
+        followupDiv.innerHTML = '<span style="color: #b91c1c;">Failed to load clinical questions.</span>';
+      }
+    };
 
     function formatSoapNote(soap) {
       const cleanSoap = soap
@@ -1485,7 +1644,12 @@
       document.getElementById('soap-content').innerHTML = formatSoapNote(soapNote);
       
       const score = auditData.score !== undefined ? auditData.score : 85;
-      document.getElementById('score-value').textContent = `Score: ${score}/100`;
+      
+      // Update with score badge styling
+      document.getElementById('score-value').innerHTML = `
+        <span>Encounter Quality Check</span>
+        <span class="score-badge" style="background-color: ${score >= 90 ? 'var(--color-forest-ink)' : score >= 70 ? 'var(--color-mist-blue)' : '#b91c1c'}; color: ${score >= 70 && score < 90 ? 'var(--color-charcoal)' : '#ffffff'}">${score}/100</span>
+      `;
 
       const missingList = document.getElementById('missing-fields-list');
       missingList.innerHTML = '';
@@ -1494,12 +1658,14 @@
       if (missingFields.length > 0) {
         missingFields.forEach(field => {
           const li = document.createElement('li');
-          li.textContent = field;
+          li.className = 'missing-item';
+          li.innerHTML = `<span style="color: #b91c1c;">⚠️</span> <span>${escapeHtml(field)}</span>`;
           missingList.appendChild(li);
         });
       } else {
         const li = document.createElement('li');
-        li.textContent = "None — note meets all clinical targets";
+        li.className = 'missing-item';
+        li.innerHTML = `<span style="color: var(--color-forest-ink);">✓</span> <span>All targets met — note meets clinical quality standards.</span>`;
         missingList.appendChild(li);
       }
     }
@@ -1627,13 +1793,89 @@
       }
     }
 
+    async function fetchHistory() {
+      const historyContainer = document.getElementById('history-content-container');
+      const patientId = document.getElementById('patient-id-input').value.trim();
+      const patientName = patientNameInput ? patientNameInput.value.trim() : '';
+      
+      if (!patientId) {
+        historyContainer.innerHTML = `
+          <div style="text-align: center; color: var(--color-charcoal); padding: var(--spacing-21); border: 1px dashed var(--color-hairline-gray); border-radius: var(--radius-cards); font-weight: 300;">
+            Please enter a <strong>Patient ID</strong> on the main screen to retrieve past clinical history.
+          </div>
+        `;
+        return;
+      }
+
+      historyContainer.innerHTML = `
+        <div style="text-align: center; color: var(--color-charcoal); padding: var(--spacing-21); font-weight: 300;">
+          Querying secure local database for Patient ID ${escapeHtml(patientId)}...
+        </div>
+      `;
+
+      try {
+        const res = await fetch(`${activeServer}/rag-search`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ patientId })
+        });
+        if (!res.ok) throw new Error("Server returned status " + res.status);
+        const data = await res.json();
+        
+        if (!data.results || data.results.length === 0) {
+          historyContainer.innerHTML = `
+            <div style="text-align: center; color: var(--color-charcoal); padding: var(--spacing-21); border: 1px dashed var(--color-hairline-gray); border-radius: var(--radius-cards); font-weight: 300;">
+              No previous clinical notes found for Patient ID: <strong>${escapeHtml(patientId)}</strong>${patientName ? ' (' + escapeHtml(patientName) + ')' : ''}.
+            </div>
+          `;
+          return;
+        }
+
+        let html = '';
+        data.results.forEach((item, idx) => {
+          let displayContent = item.content;
+          const prefixRegex = new RegExp(`^Patient\\s+${patientId}(\\s*\\([^)]*\\))?:\\s*`, 'i');
+          displayContent = displayContent.replace(prefixRegex, '');
+          
+          html += `
+            <div class="past-encounter-card">
+              <div class="past-encounter-header">
+                <span style="font-family: var(--font-body); font-weight: 400; font-size: 13px; color: var(--color-forest-ink);">Encounter #${idx + 1}</span>
+                <span style="font-family: var(--font-body); font-weight: 300; font-size: 11px; color: var(--color-charcoal);">RAG Match Score: ${(item.score * 100).toFixed(0)}%</span>
+              </div>
+              <div class="soap-text" style="font-size: 13px; color: var(--color-true-black);">${formatSoapNote(displayContent)}</div>
+            </div>
+          `;
+        });
+        historyContainer.innerHTML = html;
+      } catch (err) {
+        console.error("Error fetching patient history:", err);
+        historyContainer.innerHTML = `
+          <div style="text-align: center; color: #b91c1c; padding: var(--spacing-21); border: 1px dashed #fca5a5; border-radius: var(--radius-cards); font-weight: 300;">
+            Failed to retrieve history: ${escapeHtml(err.message)}
+          </div>
+        `;
+      }
+    }
+
     // Toggle Buttons Listeners
     toggleNoteBtn.addEventListener('click', () => {
       if (currentTab === 'note') return;
       currentTab = 'note';
       toggleNoteBtn.classList.add('active');
+      toggleHistoryBtn.classList.remove('active');
       toggleMetricsBtn.classList.remove('active');
       showState(currentState);
+    });
+
+    toggleHistoryBtn.addEventListener('click', () => {
+      if (currentTab === 'history') return;
+      currentTab = 'history';
+      toggleHistoryBtn.classList.add('active');
+      toggleNoteBtn.classList.remove('active');
+      toggleMetricsBtn.classList.remove('active');
+      showState(currentState);
+      fetchHistory();
     });
 
     toggleMetricsBtn.addEventListener('click', () => {
@@ -1641,6 +1883,7 @@
       currentTab = 'metrics';
       toggleMetricsBtn.classList.add('active');
       toggleNoteBtn.classList.remove('active');
+      toggleHistoryBtn.classList.remove('active');
       showState(currentState);
       fetchMetrics();
     });
@@ -1656,6 +1899,7 @@
       document.getElementById('differentials-card').style.display = 'none';
       document.getElementById('differentials-list').innerHTML = '';
       document.getElementById('patient-id-input').value = '';
+      if (patientNameInput) patientNameInput.value = '';
       showState(1);
     });
     copyNoteBtn.addEventListener('click', copyNote);

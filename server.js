@@ -122,7 +122,65 @@ async function complete(prompt) {
   return text;
 }
 
-async function runPipeline(transcript, patientId = null) {
+function runRuleBasedAudit(soap, extracted, patientName = '') {
+  const missing_fields = [];
+  const recommendations = [];
+  let score = 100;
+
+  // 1. Check patient identity info
+  if (!patientName || patientName.trim().length === 0) {
+    missing_fields.push("Patient Name");
+    score -= 15;
+    recommendations.push("Document the patient's name for proper medical record matching.");
+  }
+
+  // 2. Check Date (is there a date-like pattern in the SOAP note?)
+  const dateRegex = /\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b|\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2}(?:st|nd|rd|th)?(?:,)? \d{4}\b/i;
+  if (!dateRegex.test(soap)) {
+    missing_fields.push("Encounter Date");
+    score -= 15;
+    recommendations.push("Include the current date in the documentation headers.");
+  }
+
+  // 3. Check SOAP sections in the text
+  const cleanSoap = soap.toLowerCase();
+  
+  if (!cleanSoap.includes("subjective") && !/\b(s|subj)\b\s*:/i.test(soap)) {
+    missing_fields.push("Subjective (S) Notes");
+    score -= 20;
+    recommendations.push("Document the patient's chief complaint and history of present illness.");
+  }
+  
+  if (!cleanSoap.includes("objective") && !/\b(o|obj)\b\s*:/i.test(soap)) {
+    missing_fields.push("Objective (O) / Exam Findings");
+    score -= 20;
+    recommendations.push("Document the physical exam findings or vital signs observed.");
+  } else if (!extracted || !extracted.vitals || extracted.vitals.length === 0) {
+    missing_fields.push("Vitals (Objective)");
+    score -= 10;
+    recommendations.push("Ensure patient vital signs (BP, Temp, HR) are recorded.");
+  }
+
+  if (!cleanSoap.includes("assessment") && !/\b(a|assess)\b\s*:/i.test(soap)) {
+    missing_fields.push("Assessment (A) / Diagnosis");
+    score -= 20;
+    recommendations.push("Provide a clinical impression, differential, or finalized diagnosis.");
+  }
+
+  if (!cleanSoap.includes("plan") && !/\b(p|plan)\b\s*:/i.test(soap)) {
+    missing_fields.push("Clinical Plan (P)");
+    score -= 20;
+    recommendations.push("Detail the treatment plan, prescriptions, and follow-up timeline.");
+  }
+
+  return {
+    score: Math.max(0, score),
+    missing_fields,
+    recommendations
+  };
+}
+
+async function runPipeline(transcript, patientId = null, patientName = null) {
   let historicalContext = '';
   if (patientId && embeddingModelId) {
     try {
@@ -145,24 +203,68 @@ async function runPipeline(transcript, patientId = null) {
     }
   }
 
-  const extracted = await complete(`Extract all medical entities from this transcript. Return JSON only with fields: symptoms, medications, vitals, allergies, history. Transcript: "${truncate(transcript, 600)}"`);
-  
-  let soapPrompt = `Using these medical entities, generate a structured SOAP note. Be concise. Entities: ${truncate(extracted, 800)}`;
-  if (historicalContext) {
-    soapPrompt = `Historical clinical history for this patient:\n${truncate(historicalContext, 400)}\n\nUsing the medical entities from the current visit and incorporating any relevant past history, generate a structured SOAP note. Be concise. Entities: ${truncate(extracted, 800)}`;
+  const systemPrompt = `You are a precise clinical AI assistant compiling a patient visit.
+Analyze the patient encounter transcript. 
+First, generate a structured, professional SOAP Note. Do NOT include any introductory or conversational text like "Here is your note" - start directly with the SOAP content.
+Second, extract all medical entities into categories (symptoms, medications, vitals, allergies, history).
+
+You MUST return your response strictly as a valid JSON object matching this structure (no markdown formatting outside of JSON):
+{
+  "soap": "Subjective:\\n[symptoms, patient description]\\n\\nObjective:\\n[vitals, exam details]\\n\\nAssessment:\\n[diagnosis, clinical impression]\\n\\nPlan:\\n[treatment plan, follow up]",
+  "extracted": {
+    "symptoms": ["list", "of", "symptoms", "found"],
+    "medications": ["list", "of", "medications", "found"],
+    "vitals": ["list", "of", "vitals", "found"],
+    "allergies": ["list", "of", "allergies", "found"],
+    "history": ["list", "of", "history", "details", "found"]
   }
-  const soap = await complete(soapPrompt);
-  
-  const audit = await complete(`Review this SOAP note. Return JSON only with: score (0-100), missing_fields (array), recommendations (array). SOAP note: ${truncate(soap, 1200)}`);
+}`;
+
+  let userPrompt = `Current encounter transcript:\n"${truncate(transcript, 800)}"`;
+  if (historicalContext) {
+    userPrompt = `Historical clinical history for this patient:\n"${truncate(historicalContext, 400)}"\n\nCurrent encounter transcript:\n"${truncate(transcript, 800)}"`;
+  }
+
+  console.log("Starting combined SOAP note & entity extraction inference call...");
+  const combinedOutput = await complete(`${systemPrompt}\n\n${userPrompt}`);
+  console.log("Combined inference call complete.");
+
+  let soap = '';
+  let extObj = { symptoms: [], medications: [], vitals: [], allergies: [], history: [] };
+
+  try {
+    const cleanJson = combinedOutput.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(cleanJson);
+    soap = parsed.soap || '';
+    if (parsed.extracted) {
+      extObj = parsed.extracted;
+    }
+  } catch (parseErr) {
+    console.error("Failed to parse combined JSON output, trying simple text fallback:", parseErr);
+    soap = combinedOutput;
+    
+    // Simple text extraction heuristics as fallback
+    const symptomsMatch = combinedOutput.match(/symptoms?\s*:\s*([^]*?)(?=\n\n|\n[A-Z]|$)/i);
+    if (symptomsMatch) extObj.symptoms = symptomsMatch[1].split(',').map(s => s.trim()).filter(Boolean);
+  }
+
+  // Run the programmatic, instant completeness audit (replaces the slow third LLM call!)
+  console.log("Executing programmatic completeness audit...");
+  const auditResult = runRuleBasedAudit(soap, extObj, patientName);
+  console.log(`Encounter Audit Score: ${auditResult.score}/100`);
+
+  const extracted = JSON.stringify(extObj);
+  const audit = JSON.stringify(auditResult);
 
   if (patientId && embeddingModelId && soap) {
     (async () => {
       try {
         console.log(`Ingesting SOAP note to RAG for patientId: ${patientId}`);
         const cleanSoap = soap.replace(/```json|```/g, '').trim();
+        const doc = `Patient ${patientId}${patientName ? ' (' + patientName + ')' : ''}: ${cleanSoap}`;
         await qvac.ragIngest({
           modelId: embeddingModelId,
-          documents: [`Patient ${patientId}: ${cleanSoap}`],
+          documents: [doc],
           workspace: "med-scribe-clinical-history"
         });
         console.log(`Successfully ingested SOAP note to RAG for patientId: ${patientId}`);
@@ -258,12 +360,12 @@ app.post('/transcribe', async (req, res) => {
 });
 
 app.post('/audit', async (req, res) => {
-  const { transcript, patientId } = req.body;
+  const { transcript, patientId, patientName } = req.body;
   if (!transcript) return res.status(400).json({ error: 'transcript required' });
 
   llmQueue.add(async () => {
     try {
-      const result = await runPipeline(transcript, patientId);
+      const result = await runPipeline(transcript, patientId, patientName);
       res.json(result);
     } catch (e) {
       res.status(500).json({ error: e.message });
@@ -357,6 +459,21 @@ app.post('/differentials', async (req, res) => {
     try {
       const differentials = await complete(`Based on this SOAP note, suggest 3 potential differential diagnoses with brief reasoning (1-2 sentences each). Present them strictly as clinical prompts for the doctor's review. SOAP note: ${truncate(soap, 1200)}`);
       res.json({ differentials });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+});
+
+app.post('/differentials/questions', async (req, res) => {
+  const { soap, diagnosis } = req.body;
+  if (!soap || !diagnosis) return res.status(400).json({ error: 'soap and diagnosis required' });
+
+  llmQueue.add(async () => {
+    try {
+      const prompt = `Based on this SOAP note, generate 3 specific, high-yield follow-up questions the doctor should ask the patient to rule out or confirm the diagnosis: "${diagnosis}". SOAP note: ${truncate(soap, 1000)}`;
+      const questions = await complete(prompt);
+      res.json({ questions });
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
