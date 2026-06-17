@@ -270,6 +270,20 @@ app.post('/differentials', async (req, res) => {
 
 app.get('/health', (_, res) => res.json({ status: 'ok', medgemmaId, whisperId }));
 
+app.get('/metrics', (_, res) => {
+  if (fs.existsSync(PROFILE_LOG)) {
+    try {
+      const data = fs.readFileSync(PROFILE_LOG, 'utf8');
+      res.json(JSON.parse(data));
+    } catch (e) {
+      console.error("Error reading metrics:", e);
+      res.json([]);
+    }
+  } else {
+    res.json([]);
+  }
+});
+
 init().then(() => {
   const server = app.listen(3001, () => console.log('Server running on :3001'));
   server.timeout = 0;

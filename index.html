@@ -670,6 +670,82 @@
     .error-line::before {
       content: "✖ ";
     }
+
+    /* Toggle and Metrics Style additions */
+    .toggle-container {
+      display: flex;
+      justify-content: center;
+      padding: var(--spacing-14) var(--spacing-21) 0;
+      background-color: var(--color-linen-white);
+      flex-shrink: 0;
+    }
+
+    .toggle-pill {
+      display: flex;
+      background-color: var(--color-hairline-gray);
+      padding: 2px;
+      border-radius: var(--radius-badges);
+      width: 100%;
+      max-width: 200px;
+    }
+
+    .toggle-btn {
+      flex: 1;
+      border: none;
+      background: none;
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 300;
+      color: var(--color-graphite);
+      padding: var(--spacing-7) 0;
+      border-radius: var(--radius-badges);
+      cursor: pointer;
+      text-align: center;
+      line-height: 1;
+      transition: background-color 0.2s ease, color 0.2s ease, font-weight 0.2s ease;
+    }
+
+    .toggle-btn.active {
+      background-color: var(--color-linen-white);
+      color: var(--color-forest-ink);
+      font-weight: 400;
+    }
+
+    .metrics-table-container {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--color-hairline-gray);
+      border-radius: var(--radius-cards);
+      background-color: var(--color-linen-white);
+    }
+
+    .metrics-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 400;
+      text-align: left;
+    }
+
+    .metrics-table th {
+      background-color: var(--color-linen-white);
+      color: var(--color-forest-ink);
+      font-weight: 400;
+      border-bottom: 1px solid var(--color-hairline-gray);
+      padding: var(--spacing-9) var(--spacing-11);
+    }
+
+    .metrics-table td {
+      color: var(--color-charcoal);
+      font-weight: 400;
+      border-bottom: 1px solid var(--color-hairline-gray);
+      padding: var(--spacing-9) var(--spacing-11);
+    }
+
+    .metrics-table tr:last-child td {
+      border-bottom: none;
+    }
   </style>
 </head>
 <body>
@@ -681,6 +757,14 @@
       <span class="brand">Med-Scribe</span>
       <span id="connection-badge" class="badge connecting">Connecting...</span>
     </header>
+
+    <!-- Pill Toggle (Just below the header) -->
+    <div class="toggle-container">
+      <div class="toggle-pill">
+        <button id="toggle-note-btn" class="toggle-btn active">Note</button>
+        <button id="toggle-metrics-btn" class="toggle-btn">Metrics</button>
+      </div>
+    </div>
 
     <!-- Main Container -->
     <main class="app-body">
@@ -761,6 +845,31 @@
         </div>
       </div>
 
+      <!-- Metrics View -->
+      <div id="view-metrics" class="state-view" style="display: none; align-items: stretch; text-align: left;">
+        <h1 class="heading" style="color: var(--color-forest-ink); font-weight: 300; margin-bottom: var(--spacing-4);">System Metrics</h1>
+        <p class="subtext" style="margin-bottom: var(--spacing-21); font-weight: 300;">Local inference performance log</p>
+        
+        <div class="metrics-table-container">
+          <table class="metrics-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Type</th>
+                <th>Model ID</th>
+                <th>Duration</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="metrics-table-body">
+              <tr>
+                <td colspan="5" style="text-align: center; color: var(--color-graphite); padding: var(--spacing-14);">Loading metrics...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Loading Overlay -->
       <div id="loading-overlay" class="loading-view" style="display: none;">
         <div class="spinner"></div>
@@ -800,6 +909,8 @@
     let secondsElapsed = 0;
     let isSimulated = false;
     let currentSoapNote = '';
+    let currentState = 1;
+    let currentTab = 'note';
 
     // Element bindings
     const connectionBadge = document.getElementById('connection-badge');
@@ -817,9 +928,14 @@
     const stateReady = document.getElementById('state-ready');
     const stateRecording = document.getElementById('state-recording');
     const stateResults = document.getElementById('state-results');
+    const viewMetrics = document.getElementById('view-metrics');
     const loadingOverlay = document.getElementById('loading-overlay');
     const loadingText = document.getElementById('loading-text');
     const loadingSubtext = document.getElementById('loading-subtext');
+    
+    // Toggle Buttons
+    const toggleNoteBtn = document.getElementById('toggle-note-btn');
+    const toggleMetricsBtn = document.getElementById('toggle-metrics-btn');
 
     // Logging helpers
     function logStatus(msg) {
@@ -889,12 +1005,21 @@
 
     // 2. View switcher helper
     function showState(state) {
-      stateReady.style.display = (state === 1) ? 'flex' : 'none';
-      stateRecording.style.display = (state === 2) ? 'flex' : 'none';
-      stateResults.style.display = (state === 3) ? 'flex' : 'none';
+      currentState = state;
       
-      // Connection strip is hidden in State 3 to make room
-      connectionStrip.style.display = (state === 3) ? 'none' : 'block';
+      if (currentTab === 'note') {
+        stateReady.style.display = (state === 1) ? 'flex' : 'none';
+        stateRecording.style.display = (state === 2) ? 'flex' : 'none';
+        stateResults.style.display = (state === 3) ? 'flex' : 'none';
+        viewMetrics.style.display = 'none';
+        connectionStrip.style.display = (state === 3) ? 'none' : 'block';
+      } else {
+        stateReady.style.display = 'none';
+        stateRecording.style.display = 'none';
+        stateResults.style.display = 'none';
+        viewMetrics.style.display = 'flex';
+        connectionStrip.style.display = 'none';
+      }
 
       if (state === 3) {
         connectionBadge.textContent = "Note Complete";
@@ -1013,7 +1138,7 @@
 
     // 7. Base64 Audio Upload & SOAP Audit pipeline
     async function handleAudioUpload(blob) {
-      showLoading("Transcribing...", "Processing audio files on your device...");
+      showLoading("Transcribing audio...", "Processing audio files on your device...");
       logStatus("Sending audio...");
       
       try {
@@ -1051,7 +1176,7 @@
     }
 
     async function handleSimulatedUpload() {
-      showLoading("Transcribing...", "Sending simulated audio sequence to Whisper...");
+      showLoading("Transcribing audio...", "Sending simulated audio sequence to Whisper...");
       logStatus("Sending audio...");
       
       // Simulate Whisper transcription delay
@@ -1068,7 +1193,7 @@
       }, 1500);
     }
 
-    // Runs LLM audit pipeline step-by-step
+    // Runs LLM audit pipeline
     async function runAuditPipeline(transcript) {
       let extracted = "";
       let soap = "";
@@ -1078,34 +1203,36 @@
       document.getElementById('differentials-card').style.display = 'none';
       document.getElementById('differentials-list').innerHTML = '';
 
+      let auditTimer1, auditTimer2;
+
       try {
-        // Step 1: Extract clinical entities
-        showLoading("Generating SOAP Note...", "Extracting clinical entities (1/2)...");
-        logStatus("Extracting clinical entities from transcript...");
-        
-        const resExtract = await fetch(`${activeServer}/extract`, {
+        // Step 1: Run complete Audit Pipeline (extracted, soap, audit)
+        showLoading("Extracting clinical entities...", "Analyzing conversation details...");
+        logStatus("Starting audit pipeline...");
+
+        auditTimer1 = setTimeout(() => {
+          showLoading("Formatting SOAP note...", "Structuring medical record details...");
+        }, 15000);
+
+        auditTimer2 = setTimeout(() => {
+          showLoading("Auditing completeness...", "Evaluating quality score and metrics...");
+        }, 45000);
+
+        const resAudit = await fetch(`${activeServer}/audit`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ transcript })
         });
-        if (!resExtract.ok) throw new Error("Entity extraction returned status " + resExtract.status);
-        const dataExtract = await resExtract.json();
-        extracted = dataExtract.extracted;
-        logStatus("Clinical entities extracted successfully.");
 
-        // Step 2: Generate SOAP Note
-        showLoading("Generating SOAP Note...", "Structuring SOAP note details (2/2)...");
-        logStatus("Generating structured SOAP note...");
+        clearTimeout(auditTimer1);
+        clearTimeout(auditTimer2);
+
+        if (!resAudit.ok) throw new Error("Audit pipeline returned status " + resAudit.status);
+        const dataAudit = await resAudit.json();
         
-        const resSoap = await fetch(`${activeServer}/soap`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ extracted })
-        });
-        if (!resSoap.ok) throw new Error("SOAP note generation returned status " + resSoap.status);
-        const dataSoap = await resSoap.json();
-        soap = dataSoap.soap;
-        logStatus("SOAP note generated successfully.");
+        extracted = dataAudit.extracted;
+        soap = dataAudit.soap;
+        logStatus("Audit pipeline call completed successfully.");
 
         // Show Results screen immediately with the SOAP note and "Auditing..." state
         currentSoapNote = soap;
@@ -1114,99 +1241,74 @@
         const missingList = document.getElementById('missing-fields-list');
         missingList.innerHTML = '<li>Analyzing completeness metrics...</li>';
         
-        hideLoading();
-        showState(3);
-
-        // Step 3: Completeness Audit (run in background)
-        logStatus("Auditing note completeness...");
-        fetch(`${activeServer}/audit-only`, {
+        // Parse audit results
+        let parseSuccessful = false;
+        try {
+          let cleanAudit = dataAudit.audit.trim();
+          const startIdx = cleanAudit.indexOf('{');
+          const endIdx = cleanAudit.lastIndexOf('}');
+          if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+            cleanAudit = cleanAudit.slice(startIdx, endIdx + 1);
+          } else if (cleanAudit.startsWith('```')) {
+            cleanAudit = cleanAudit.replace(/^```(?:json)?/, '').replace(/```$/, '').trim();
+          }
+          auditObj = JSON.parse(cleanAudit);
+          parseSuccessful = true;
+        } catch (parseErr) {
+          console.warn("Failed to parse audit JSON directly, running recovery parser:", parseErr);
+          
+          const scoreMatch = dataAudit.audit.match(/"score":\s*(\d+)/) || dataAudit.audit.match(/score:\s*(\d+)/);
+          const missingFieldsMatch = dataAudit.audit.match(/"missing_fields":\s*\[([\s\S]*?)\]/) || dataAudit.audit.match(/missing_fields:\s*\[([\s\S]*?)\]/);
+          
+          if (scoreMatch) {
+            auditObj.score = parseInt(scoreMatch[1]);
+            parseSuccessful = true;
+          }
+          if (missingFieldsMatch) {
+            const fieldsStr = missingFieldsMatch[1];
+            const fields = [...fieldsStr.matchAll(/"([^"]+)"/g)].map(m => m[1]);
+            if (fields.length > 0) {
+              auditObj.missing_fields = fields;
+            }
+          }
+          
+          if (!parseSuccessful) {
+            logError("Failed to parse audit output JSON or recover metrics.");
+            auditObj.score = "Error";
+          } else {
+            logStatus("Audit metrics recovered successfully.");
+          }
+        }
+        
+        // Render audit results
+        renderResults(soap, auditObj);
+        
+        // Step 2: Suggested Differentials
+        showLoading("Generating differentials...", "Suggesting diagnoses for clinical review...");
+        logStatus("Generating clinical differentials...");
+        
+        const resDiff = await fetch(`${activeServer}/differentials`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ soap })
-        }).then(async (resAudit) => {
-          if (!resAudit.ok) throw new Error("Completeness audit returned status " + resAudit.status);
-          const dataAudit = await resAudit.json();
-          logStatus("Audit completed successfully.");
-
-          // Parse audit results
-          let parseSuccessful = false;
-          try {
-            let cleanAudit = dataAudit.audit.trim();
-            const startIdx = cleanAudit.indexOf('{');
-            const endIdx = cleanAudit.lastIndexOf('}');
-            if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-              cleanAudit = cleanAudit.slice(startIdx, endIdx + 1);
-            } else if (cleanAudit.startsWith('```')) {
-              cleanAudit = cleanAudit.replace(/^```(?:json)?/, '').replace(/```$/, '').trim();
-            }
-            auditObj = JSON.parse(cleanAudit);
-            parseSuccessful = true;
-          } catch (parseErr) {
-            console.warn("Failed to parse audit JSON directly, running recovery parser:", parseErr);
-            
-            const scoreMatch = dataAudit.audit.match(/"score":\s*(\d+)/) || dataAudit.audit.match(/score:\s*(\d+)/);
-            const missingFieldsMatch = dataAudit.audit.match(/"missing_fields":\s*\[([\s\S]*?)\]/) || dataAudit.audit.match(/missing_fields:\s*\[([\s\S]*?)\]/);
-            
-            if (scoreMatch) {
-              auditObj.score = parseInt(scoreMatch[1]);
-              parseSuccessful = true;
-            }
-            if (missingFieldsMatch) {
-              const fieldsStr = missingFieldsMatch[1];
-              const fields = [...fieldsStr.matchAll(/"([^"]+)"/g)].map(m => m[1]);
-              if (fields.length > 0) {
-                auditObj.missing_fields = fields;
-              }
-            }
-            
-            if (!parseSuccessful) {
-              logError("Failed to parse audit output JSON or recover metrics.");
-              auditObj.score = "Error";
-            } else {
-              logStatus("Audit metrics recovered successfully.");
-            }
-          }
-          renderResults(soap, auditObj);
-
-          // Step 4: Suggested Differentials (triggered sequentially after audit completes)
-          logStatus("Generating clinical differentials...");
-          return fetch(`${activeServer}/differentials`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ soap })
-          });
-        }).then(async (resDiff) => {
-          if (!resDiff) return;
-          if (!resDiff.ok) throw new Error("Differentials agent returned status " + resDiff.status);
-          const dataDiff = await resDiff.json();
-          logStatus("Clinical differentials generated successfully.");
-          
-          document.getElementById('differentials-list').innerHTML = formatDifferentials(dataDiff.differentials);
-          document.getElementById('differentials-card').style.display = 'block';
-        }).catch((err) => {
-          console.error("Background validation execution failed:", err);
-          logError("Background process error: " + err.message);
-          
-          // Show error message on differentials card if only that step failed
-          const diffList = document.getElementById('differentials-list');
-          if (diffList && (!diffList.innerHTML || diffList.innerHTML.trim().length === 0)) {
-            diffList.innerHTML = `<p class="diff-item-content" style="color: #b91c1c;">Unable to load clinical differentials: ${escapeHtml(err.message)}</p>`;
-            document.getElementById('differentials-card').style.display = 'block';
-          }
         });
-
+        
+        if (!resDiff.ok) throw new Error("Differentials agent returned status " + resDiff.status);
+        const dataDiff = await resDiff.json();
+        logStatus("Clinical differentials generated successfully.");
+        
+        document.getElementById('differentials-list').innerHTML = formatDifferentials(dataDiff.differentials);
+        document.getElementById('differentials-card').style.display = 'block';
+        
+        hideLoading();
+        showState(3);
       } catch (err) {
-        console.error("Audit pipeline error:", err);
+        if (auditTimer1) clearTimeout(auditTimer1);
+        if (auditTimer2) clearTimeout(auditTimer2);
+        console.error("Audit pipeline execution failed:", err);
         logError("Audit pipeline error: " + err.message);
         hideLoading();
-        // Only revert to state 1 if we didn't even manage to render the SOAP note
-        if (!soap) {
-          showState(1);
-        } else {
-          document.getElementById('score-value').textContent = "Score: Audit failed";
-          const missingList = document.getElementById('missing-fields-list');
-          missingList.innerHTML = '<li>Unable to load audit details: ' + escapeHtml(err.message) + '</li>';
-        }
+        showState(1);
       }
     }
 
@@ -1395,6 +1497,76 @@
         logoClickCount = 0;
       }
     });
+
+    async function fetchMetrics() {
+      const tableBody = document.getElementById('metrics-table-body');
+      if (!tableBody) return;
+      
+      try {
+        const res = await fetch(`${activeServer}/metrics`);
+        if (!res.ok) throw new Error("Failed to fetch metrics: " + res.status);
+        const data = await res.json();
+        
+        // Take the last 10 entries and reverse to show most recent first
+        const entries = data.slice(-10).reverse();
+        
+        if (entries.length === 0) {
+          tableBody.innerHTML = `
+            <tr>
+              <td colspan="5" style="text-align: center; color: var(--color-graphite); padding: var(--spacing-14);">No inference logs found.</td>
+            </tr>
+          `;
+          return;
+        }
+        
+        tableBody.innerHTML = entries.map(entry => {
+          const dateObj = new Date(entry.timestamp);
+          const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+          const typeStr = entry.kind || 'N/A';
+          const modelIdStr = entry.modelId ? entry.modelId.substring(0, 8) : 'N/A';
+          const durationStr = entry.durationMs ? `${entry.durationMs}ms` : 'N/A';
+          const statusStr = 'Success';
+          
+          return `
+            <tr>
+              <td>${escapeHtml(timeStr)}</td>
+              <td>${escapeHtml(typeStr)}</td>
+              <td><code>${escapeHtml(modelIdStr)}</code></td>
+              <td>${escapeHtml(durationStr)}</td>
+              <td>${escapeHtml(statusStr)}</td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error("Error loading metrics:", err);
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="5" style="text-align: center; color: #b91c1c; padding: var(--spacing-14);">Error loading metrics: ${escapeHtml(err.message)}</td>
+          </tr>
+        `;
+      }
+    }
+
+    // Toggle Buttons Listeners
+    toggleNoteBtn.addEventListener('click', () => {
+      if (currentTab === 'note') return;
+      currentTab = 'note';
+      toggleNoteBtn.classList.add('active');
+      toggleMetricsBtn.classList.remove('active');
+      showState(currentState);
+    });
+
+    toggleMetricsBtn.addEventListener('click', () => {
+      if (currentTab === 'metrics') return;
+      currentTab = 'metrics';
+      toggleMetricsBtn.classList.add('active');
+      toggleNoteBtn.classList.remove('active');
+      showState(currentState);
+      fetchMetrics();
+    });
+
+    // Load metrics on startup
+    fetchMetrics();
 
     // Event hooks
     startRecordBtn.addEventListener('click', startRecording);
