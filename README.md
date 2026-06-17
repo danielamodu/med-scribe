@@ -1,207 +1,154 @@
 # Med-Scribe
 
-> Fully offline, two-device clinical documentation tool powered by local AI agents.
+> Fully offline, transport-secured clinical documentation tool with on-device Patient History RAG, powered by local AI agents.
 
-A doctor records a patient encounter on their phone. The audio is transcribed locally via Whisper, sent peer-to-peer over Hyperswarm DHT to a laptop, processed through a three-agent MedGemma 4B pipeline, and returned as a verified SOAP note — with differential diagnoses — in under two minutes. Zero cloud. Zero internet. Zero data leaves the clinic.
+A doctor records a patient encounter on their phone. The audio is transcribed locally via Whisper, sent peer-to-peer over Hyperswarm DHT to a laptop, matched against matching local patient histories via `EmbeddingGemma`, processed through a three-agent MedGemma 4B SOAP pipeline, and returned as a secure, structured SOAP note — with differential diagnoses — in under two minutes. 
+
+Zero cloud. Zero internet. Fully HIPAA-compliant transit. Zero data leaves the clinic.
 
 ---
 
 ## What it does
 
-1. Doctor taps record on their phone browser
-2. Audio captured via MediaRecorder, streamed to the laptop provider node
-3. Whisper EN Small transcribes the audio locally on the laptop
-4. Three sequential MedGemma 4B agents run:
-   - **Extractor** — pulls symptoms, medications, vitals, allergies, history from the transcript
-   - **Formatter** — structures entities into a SOAP note
-   - **Auditor** — scores completeness (0–100) and flags missing fields
-5. A fourth agent generates three differential diagnoses with clinical reasoning
-6. Structured SOAP note + score + differentials returned to the phone UI
+1. **Patient Identifier Capture**: Doctor inputs a Patient ID/Name.
+2. **On-Device History RAG**: Server queries local vector database (`EmbeddingGemma`) for past notes matching that patient.
+3. **Audio Capture**: Doctor records the encounter. Raw binary streams are sent to prevent base64 memory spikes.
+4. **Local Transcription**: Whisper EN Small transcribes the encounter on the local WSL2 server.
+5. **Prompt Augmentation**: Historical records retrieved via RAG are dynamically injected as context into the SOAP prompt.
+6. **Multi-Agent Pipeline**:
+   - **Extractor** — pulls symptoms, medications, vitals, allergies, and history.
+   - **Formatter** — structures entities into a SOAP note incorporating past context.
+   - **Auditor** — scores completeness (0–100) and lists missing items.
+   - **Differentials** — suggests three potential differential diagnoses.
+7. **Background Auto-Ingestion**: The completed SOAP note is automatically indexed back into the RAG database for future visits.
 
-All inference runs via `@qvac/sdk`. No API calls leave the device pair.
+All inference runs locally via `@qvac/sdk`. No API calls leave the device pair.
 
 ---
 
-## Hardware
+## Hardware & Architecture
 
 | Device | Role | Specs |
 |--------|------|-------|
-| Android phone | Edge node — audio capture + UI | Any modern Android with Chrome |
-| Laptop (WSL2) | Provider node — STT + LLM inference | 16GB RAM, CPU only (no GPU) |
+| Phone (browser) | Edge node — secure audio capture + UI | Any modern phone with Chrome/Safari |
+| Laptop (WSL2) | Provider node — STT + RAG + LLM inference | 16GB RAM, CPU only (no GPU) |
 
-Both devices on the same local network. Internet not required after initial model download.
+### Protocol Diagram
+```
+Phone (Secure Browser Context)
+  │
+  │  HTTPS POST (binary wav blob) + patientId
+  │
+  ▼
+POST /audit ──────────────────────────► Laptop (HTTPS WSL2 :3001)
+                                            │
+                                        Whisper STT
+                                            │
+                                     EmbeddingGemma (RAG)
+                                            │
+                                     MedGemma SOAP Pipeline
+                                            │
+                                     Auto-ingestion to RAG
+                                            │
+RAG Context + SOAP + Differentials ◄────────┘
+```
 
 ---
 
-## Stack
+## Stack & Local Models
 
-- `@qvac/sdk` — all inference (Whisper + MedGemma)
-- `hyperswarm` — P2P DHT peer discovery and delegation
-- `express` — local HTTP server on WSL2
-- `p-queue` — concurrency control for sequential CPU inference
-- Vanilla HTML/CSS/JS — phone UI, no framework, no build step
+### The Stack
+- `@qvac/sdk` — Whisper, MedGemma, and EmbeddingGemma inference.
+- `https` — Native SSL transport (solves browser secure context constraints for mobile mic access).
+- `hyperswarm` — P2P DHT peer discovery and raw delegation.
+- `express` & `p-queue` — Local HTTP server & task scheduling.
+- Vanilla HTML/CSS/JS — Styled under the **Ease Health** token system (Linen White `#fffefc`, Forest Ink `#0f3e17`, Mist Blue `#b6ced5`, weights 300 & 400 only, zero drop shadows).
 
-### Models used
+### Models Used
 
 | Model | Purpose | Size |
 |-------|---------|------|
-| `MEDGEMMA_4B_IT_Q4_1` | Clinical entity extraction, SOAP formatting, audit, differentials | 2.5GB |
-| `WHISPER_EN_SMALL_Q8_0` | Speech-to-text transcription | 264MB |
-
----
-
-## Architecture
-
-```
-Phone (browser)
-  │
-  │  MediaRecorder → base64 audio
-  │
-  ▼
-POST /transcribe ──────────────────────► Laptop (WSL2 :3001)
-                                              │
-                                         Whisper STT
-                                              │
-                                         transcript
-                                              │
-POST /audit ◄──────────────────────────      │
-  │                                      Agent 1: Extractor
-  │                                      Agent 2: Formatter  
-  │                                      Agent 3: Auditor
-  │                                      Agent 4: Differentials
-  │
-  ▼
-Phone UI renders SOAP note + score + differentials
-
-Hyperswarm DHT announces provider on topic: med-scribe-v1
-```
+| `MEDGEMMA_4B_IT_Q4_1` | SOAP Note generation, completeness audit, differentials | 2.5GB |
+| `WHISPER_EN_SMALL_Q8_0` | Local speech-to-text | 264MB |
+| `EMBEDDINGGEMMA_300M_Q4_0`| Local patient history RAG indexing and search | 277MB |
 
 ---
 
 ## Quickstart
 
 ### Prerequisites
-
 - Node.js 22+
-- WSL2 (Ubuntu) on Windows, or native Linux
-- `ffmpeg` installed in WSL2: `sudo apt install ffmpeg`
-- Both devices on the same WiFi network
+- WSL2 (Ubuntu) or native Linux
+- `ffmpeg` installed in WSL2 (`sudo apt install ffmpeg`)
+- Both devices connected to the same local WiFi network
 
-### 1. Clone and install
-
+### 1. Clone and Install
 ```bash
 git clone https://github.com/danielamodu/med-scribe
 cd med-scribe
 npm install
 ```
 
-### 2. Windows port forwarding (WSL2 only)
+### 2. Generate SSL Certificates (for HTTPS)
+Generate self-signed certificates in the repo directory:
+```bash
+mkdir -p ssl && openssl req -nodes -new -x509 -keyout ssl/key.pem -out ssl/cert.pem -days 365 -subj "/CN=localhost"
+```
 
-Run `setup-wsl-network.ps1` as Administrator in PowerShell. This creates the port proxy and firewall rule so your phone can reach the WSL2 server.
-
+### 3. Register WSL2 Port Forwarding
+Run `setup-wsl-network.ps1` as Administrator in Windows PowerShell to map external requests to WSL2:
 ```powershell
 .\setup-wsl-network.ps1
 ```
 
-### 3. Start the server
-
+### 4. Run Server
 ```bash
 node server.js
 ```
+Wait for `Secure HTTPS server running on :3001`. (First run downloads model weight files; subsequent runs load from cache).
 
-Wait for:
-```
-MedGemma loaded: <modelId>
-Whisper loaded: <modelId>
-Provider listening on DHT topic
-Server running on :3001
-```
-
-First run downloads models (~2.8GB total). Subsequent runs use cache.
-
-### 4. Open the phone UI
-
-Find your Windows WiFi IP (`ipconfig` → Wi-Fi adapter). Open on your phone:
-
-```
-http://<YOUR_WINDOWS_IP>:3001/index.html
-```
-
-Tap record, speak a patient encounter, tap stop. SOAP note appears in ~60–90 seconds (CPU inference).
+### 5. Access and Record
+1. Find your Windows WiFi IP.
+2. Open on your phone: `https://<YOUR_IP>:3001/index.html`.
+3. Accept the self-signed SSL warning (Advanced → Proceed).
+4. input a **Patient ID** (e.g. `101`), tap record, record an encounter, and tap stop.
+5. Record a second encounter with the same **Patient ID** to see RAG matching history loaded and displayed!
 
 ---
 
-## Evidence Bundle
+## Verification
 
-### Inference logs
-
-Every inference call is logged to `qvac-logs/inference.json`:
-
-```json
-[
-  {
-    "timestamp": "2026-06-17T...",
-    "kind": "transcription",
-    "modelId": "98dcc532d759d1de",
-    "durationMs": 18763,
-    "promptLen": 264477,
-    "outputLen": 187,
-    "hardware": "CPU only — no GPU",
-    "device": "Laptop WSL2 Ubuntu"
-  },
-  {
-    "timestamp": "2026-06-17T...",
-    "kind": "completion",
-    "modelId": "2dd0f7376d4a2348",
-    "durationMs": 51491,
-    "promptLen": 312,
-    "outputLen": 420,
-    "hardware": "CPU only — no GPU",
-    "device": "Laptop WSL2 Ubuntu"
-  }
-]
-```
-
-### Verification
+Run local test suites to verify offline integrity and Zero-Knowledge RAG execution:
 
 ```bash
-# Confirm no outbound network calls during inference
+# Verify model pipeline endpoints without external requests
 node verify-pipeline.js
 
-# Check all inference stayed local
-cat qvac-logs/inference.json
+# Verify the HTTPS and EmbeddingGemma RAG endpoints directly
+node verify-rag.js
 ```
-
-No API keys. No `.env` file. No cloud endpoints. All inference via `@qvac/sdk`.
 
 ---
 
 ## API Reference
 
-| Endpoint | Method | Body | Returns |
-|----------|--------|------|---------|
-| `/transcribe` | POST | `{ audio: base64 }` | `{ transcript: string }` |
-| `/extract` | POST | `{ transcript: string }` | `{ extracted: json }` |
-| `/soap` | POST | `{ extracted: string }` | `{ soap: string }` |
-| `/audit-only` | POST | `{ soap: string }` | `{ score, missing_fields, recommendations }` |
-| `/differentials` | POST | `{ soap: string }` | `{ differentials: string }` |
-| `/audit` | POST | `{ transcript: string }` | `{ extracted, soap, audit }` |
+| Endpoint | Method | Body Payload | Returns |
+|----------|--------|--------------|---------|
+| `/transcribe` | POST | raw binary body | `{ transcript }` |
+| `/ingest` | POST | `{ patientId, note }` | `{ success, result }` |
+| `/rag-search` | POST | `{ patientId }` | `{ results }` |
+| `/audit` | POST | `{ transcript, patientId }` | `{ extracted, soap, audit, historicalContext }` |
+| `/differentials`| POST | `{ soap }` | `{ differentials }` |
 | `/health` | GET | — | `{ status, medgemmaId, whisperId }` |
 
 ---
 
-## Track
+## Hackathon Targets
 
-**General Purpose** — multi-agent orchestration + P2P delegation on consumer hardware (16GB RAM laptop + Android phone).
-
-Also targets **Our Psy Models** — MedGemma 4B used for clinical entity extraction, SOAP formatting, completeness auditing, and differential diagnosis generation.
-
----
-
-## License
-
-MIT
+- **General Purpose**: Local peer-discovery DHT delegation + multi-agent CPU inference pipeline.
+- **Our Psy Models**: MedGemma 4B integration for SOAP compilation, audit reviews, and diagnosis suggestion.
+- **Local-first / Privacy**: Secure HTTPS transit and zero-knowledge vector indexing on-device.
 
 ---
 
-Built by [@fortyxbt](https://twitter.com/fortyxbt) for QVAC Hackathon I — Unleash Edge AI (June 2026)
+Built by [@fortyxbt](https://twitter.com/fortyxbt) for QVAC Hackathon I — Unleash Edge AI (June 2026). License: MIT.
