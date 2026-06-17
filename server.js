@@ -134,7 +134,8 @@ async function runPipeline(transcript, patientId = null) {
         workspace: "med-scribe-clinical-history"
       });
       if (searchResult && searchResult.length > 0) {
-        historicalContext = searchResult.map(r => r.content).join('\n');
+        // Only use the most recent 1 match, not all matches
+        historicalContext = searchResult[0].content;
         console.log(`Retrieved RAG context:\n${historicalContext}`);
       } else {
         console.log('No historical context found in RAG.');
@@ -148,7 +149,7 @@ async function runPipeline(transcript, patientId = null) {
   
   let soapPrompt = `Using these medical entities, generate a structured SOAP note. Be concise. Entities: ${truncate(extracted, 800)}`;
   if (historicalContext) {
-    soapPrompt = `Historical clinical history for this patient:\n${truncate(historicalContext, 1000)}\n\nUsing the medical entities from the current visit and incorporating any relevant past history, generate a structured SOAP note. Be concise. Entities: ${truncate(extracted, 800)}`;
+    soapPrompt = `Historical clinical history for this patient:\n${truncate(historicalContext, 400)}\n\nUsing the medical entities from the current visit and incorporating any relevant past history, generate a structured SOAP note. Be concise. Entities: ${truncate(extracted, 800)}`;
   }
   const soap = await complete(soapPrompt);
   
