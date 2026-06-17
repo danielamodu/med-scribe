@@ -278,43 +278,53 @@ You MUST return your response strictly as a valid JSON object matching this stru
 }
 
 async function init() {
-  await qvac.startQVACProvider();
-
-  medgemmaId = await qvac.loadModel({
-    modelSrc: qvac.MEDGEMMA_4B_IT_Q4_1.src,
-    modelType: 'llamacpp-completion'
-  });
-  console.log('MedGemma loaded:', medgemmaId);
-
-  whisperId = await qvac.loadModel({
-    modelSrc: qvac.WHISPER_EN_SMALL_Q8_0.src,
-    modelType: 'whispercpp-transcription'
-  });
-  console.log('Whisper loaded:', whisperId);
-
   try {
-    console.log('Loading EmbeddingGemma model...');
-    embeddingModelId = await qvac.loadModel({
-      modelSrc: qvac.EMBEDDINGGEMMA_300M_Q4_0.src,
-      modelType: 'llamacpp-embedding'
-    });
-    console.log('EmbeddingGemma loaded:', embeddingModelId);
-  } catch (err) {
-    console.error('Failed to load EmbeddingGemma model:', err);
-  }
+    console.log('Initializing QVAC Provider...');
+    await qvac.startQVACProvider();
 
-  await createProvider(async (msg) => {
-    if (msg.type === 'transcribe') {
-      const buffer = await getTranscodedAudio(msg.audio);
-      const transcript = await qvac.transcribe({ modelId: whisperId, audioChunk: buffer });
-      return { type: 'transcript', transcript };
+    console.log('Loading MedGemma model...');
+    medgemmaId = await qvac.loadModel({
+      modelSrc: qvac.MEDGEMMA_4B_IT_Q4_1.src,
+      modelType: 'llamacpp-completion'
+    });
+    console.log('MedGemma loaded successfully:', medgemmaId);
+
+    console.log('Loading Whisper model...');
+    whisperId = await qvac.loadModel({
+      modelSrc: qvac.WHISPER_EN_SMALL_Q8_0.src,
+      modelType: 'whispercpp-transcription'
+    });
+    console.log('Whisper loaded successfully:', whisperId);
+
+    try {
+      console.log('Loading EmbeddingGemma model...');
+      embeddingModelId = await qvac.loadModel({
+        modelSrc: qvac.EMBEDDINGGEMMA_300M_Q4_0.src,
+        modelType: 'llamacpp-embedding'
+      });
+      console.log('EmbeddingGemma loaded successfully:', embeddingModelId);
+    } catch (err) {
+      console.error('Failed to load EmbeddingGemma model (RAG timeline search will be disabled):', err);
     }
-    if (msg.type === 'audit') {
-      const result = await runPipeline(msg.transcript, msg.patientId);
-      return { type: 'result', ...result };
-    }
-    return { type: 'error', error: 'unknown message type' };
-  });
+
+    console.log('Initializing Hyperswarm P2P Provider...');
+    await createProvider(async (msg) => {
+      if (msg.type === 'transcribe') {
+        const buffer = await getTranscodedAudio(msg.audio);
+        const transcript = await qvac.transcribe({ modelId: whisperId, audioChunk: buffer });
+        return { type: 'transcript', transcript };
+      }
+      if (msg.type === 'audit') {
+        const result = await runPipeline(msg.transcript, msg.patientId);
+        return { type: 'result', ...result };
+      }
+      return { type: 'error', error: 'unknown message type' };
+    });
+    console.log('All models and providers loaded successfully!');
+  } catch (err) {
+    console.error('CRITICAL ERROR: Failed to initialize server:', err);
+    process.exit(1);
+  }
 }
 
 app.post('/transcribe', async (req, res) => {

@@ -429,6 +429,15 @@
       margin-bottom: var(--spacing-28);
       text-align: left;
       width: 100%;
+      box-sizing: border-box;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .diff-card * {
+      box-sizing: border-box;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
 
     .diff-item-row {
@@ -875,6 +884,16 @@
       background-color: var(--color-linen-white);
       text-align: left;
       margin-bottom: var(--spacing-14);
+      width: 100%;
+      box-sizing: border-box;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .past-encounter-card * {
+      box-sizing: border-box;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
 
     .past-encounter-header {
@@ -1264,7 +1283,12 @@
     checkMicrophoneAccess();
 
     // 6. Record action logic
+    let isStartRecordingInProgress = false;
+
     async function startRecording() {
+      if (isStartRecordingInProgress) return;
+      isStartRecordingInProgress = true;
+
       clearLogs();
       audioChunks = [];
       
@@ -1272,6 +1296,7 @@
         // Simulated mode (HTTP Fallback)
         startTimer();
         showState(2);
+        isStartRecordingInProgress = false;
         return;
       }
 
@@ -1308,6 +1333,7 @@
         mediaRecorder.start();
         startTimer();
         showState(2);
+        isStartRecordingInProgress = false;
       } catch (err) {
         console.error("Microphone access error:", err);
         logError("Microphone access error: " + err.message + ". Falling back to simulation mode.");
@@ -1315,6 +1341,7 @@
         fallbackBadge.style.display = 'inline-flex';
         startTimer();
         showState(2);
+        isStartRecordingInProgress = false;
       }
     }
 
