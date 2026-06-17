@@ -1,0 +1,7 @@
+node_modules/
+qvac-logs/
+*.gguf
+.qvac/
+*.lock
+.env
+.env.local

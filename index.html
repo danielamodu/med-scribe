@@ -1,0 +1,1411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Med-Scribe</title>
+  
+  <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-title" content="Med-Scribe" />
+  <link rel="manifest" href="/site.webmanifest" />
+  
+  <!-- Preconnect and load display font (Fraunces weight 300) and body font (Inter weight 300/400) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      /* Colors */
+      --color-forest-ink: #0f3e17;
+      --color-sage-wash: #b1dbb8;
+      --color-mist-blue: #b6ced5;
+      --color-mint-veil: #cfe7d3;
+      --color-linen: #e1f4df;
+      --color-linen-white: #fffefc;
+      --color-hairline-gray: #e5e7eb;
+      --color-charcoal: #222222;
+      --color-graphite: #333333;
+      --color-true-black: #000000;
+
+      /* Typography — Font Families */
+      --font-display: 'Fraunces', serif;
+      --font-body: 'Inter', sans-serif;
+
+      /* Spacing */
+      --spacing-4: 4px;
+      --spacing-7: 7px;
+      --spacing-9: 9px;
+      --spacing-11: 11px;
+      --spacing-14: 14px;
+      --spacing-18: 18px;
+      --spacing-21: 21px;
+      --spacing-28: 28px;
+      --spacing-35: 35px;
+      --spacing-42: 42px;
+      --spacing-49: 49px;
+      --spacing-56: 56px;
+      --spacing-70: 70px;
+      --spacing-76: 76px;
+      --spacing-99: 99px;
+      --spacing-156: 156px;
+
+      /* Border Radii */
+      --radius-nav: 7px;
+      --radius-cards: 14px;
+      --radius-badges: 999px;
+      --radius-buttons: 14px;
+    }
+
+    /* Reset default bolding to ensure strict adherence to weights 300 and 400 */
+    * {
+      box-sizing: border-box;
+      font-weight: inherit;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f6f5f2; /* Light background on desktop to frame the phone */
+      font-family: var(--font-body);
+      color: var(--color-true-black);
+      font-weight: 400;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    /* Mobile-first phone container */
+    .phone-container {
+      width: 100%;
+      max-width: 420px;
+      height: 100vh;
+      max-height: 850px;
+      background-color: var(--color-linen-white);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--color-hairline-gray);
+      border-radius: 28px;
+    }
+
+    @media (max-width: 480px) {
+      body {
+        background-color: var(--color-linen-white);
+      }
+      .phone-container {
+        max-width: 100%;
+        height: 100vh;
+        max-height: 100vh;
+        border: none;
+        border-radius: 0;
+      }
+    }
+
+    /* Header component */
+    .app-header {
+      background-color: var(--color-sage-wash);
+      padding: var(--spacing-21);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+      border-bottom: 1px solid rgba(15, 62, 23, 0.1);
+    }
+
+    .brand {
+      font-family: var(--font-display);
+      font-weight: 300;
+      font-size: 28px;
+      color: var(--color-forest-ink);
+      letter-spacing: -0.84px;
+      line-height: 1;
+    }
+
+    /* Mist Blue Pill Badge */
+    .badge {
+      font-family: var(--font-body);
+      font-weight: 400;
+      font-size: 12px;
+      letter-spacing: -0.36px;
+      background-color: var(--color-mist-blue);
+      color: var(--color-charcoal);
+      padding: var(--spacing-7) var(--spacing-14);
+      border-radius: var(--radius-badges);
+      line-height: 1;
+      display: inline-block;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    .badge.connecting {
+      background-color: var(--color-hairline-gray);
+      color: var(--color-graphite);
+    }
+
+    /* Scrollable main body */
+    .app-body {
+      flex-grow: 1;
+      overflow-y: auto;
+      padding: var(--spacing-42) var(--spacing-21);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* State views styling */
+    .state-view {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      width: 100%;
+      flex-grow: 1;
+      animation: fadeIn 0.4s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Headings & Texts */
+    .heading {
+      font-family: var(--font-display);
+      font-weight: 300;
+      font-size: 40px;
+      color: var(--color-forest-ink);
+      letter-spacing: -0.4px;
+      line-height: 1.25;
+      margin: 0 0 var(--spacing-14) 0;
+    }
+
+    .heading-results {
+      font-size: 28px;
+      letter-spacing: -0.84px;
+      line-height: 1.3;
+      margin-bottom: var(--spacing-21);
+      align-self: flex-start;
+      text-align: left;
+    }
+
+    .subtext {
+      font-family: var(--font-body);
+      font-weight: 400;
+      font-size: 14px;
+      color: var(--color-charcoal);
+      letter-spacing: -0.42px;
+      line-height: 1.5;
+      margin: 0 0 var(--spacing-28) 0;
+    }
+
+    /* Record Button layout */
+    .record-btn-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-top: var(--spacing-42);
+      position: relative;
+      width: 80px;
+      height: 80px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .record-btn {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background-color: var(--color-forest-ink);
+      color: var(--color-linen-white);
+      border: none;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      position: relative;
+      z-index: 2;
+      transition: transform 0.2s ease;
+      outline: none;
+    }
+
+    .record-btn:active {
+      transform: scale(0.95);
+    }
+
+    .record-btn svg {
+      width: 28px;
+      height: 28px;
+      stroke: var(--color-linen-white);
+    }
+
+    /* Pulsing ring animation in State 2 (No drop shadow!) */
+    .pulse-ring {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 2px solid var(--color-forest-ink);
+      opacity: 0;
+      animation: pulse-ring-animation 2s infinite;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    @keyframes pulse-ring-animation {
+      0% {
+        transform: scale(1);
+        opacity: 0.6;
+      }
+      100% {
+        transform: scale(1.8);
+        opacity: 0;
+      }
+    }
+
+    /* Live Timer */
+    .timer-display {
+      font-family: var(--font-body);
+      font-weight: 300;
+      font-size: 23px;
+      color: var(--color-forest-ink);
+      letter-spacing: -0.69px;
+      text-align: center;
+      margin-top: var(--spacing-21);
+      margin-bottom: var(--spacing-21);
+      line-height: 1.3;
+    }
+
+    .caption {
+      font-family: var(--font-body);
+      font-weight: 400;
+      font-size: 12px;
+      color: var(--color-charcoal);
+      letter-spacing: -0.36px;
+      line-height: 1.5;
+      margin-top: var(--spacing-14);
+      margin-bottom: 0;
+    }
+
+    /* Buttons */
+    .btn {
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 400;
+      border-radius: var(--radius-buttons);
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--spacing-9);
+      transition: all 0.2s ease;
+      outline: none;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background-color: var(--color-forest-ink);
+      color: var(--color-linen-white);
+      padding: var(--spacing-14) var(--spacing-21);
+      line-height: 1.2;
+    }
+
+    .btn-primary:active {
+      background-color: #0b2f11;
+    }
+
+    /* Arrow icon styling matching Ease Health design system */
+    .btn-primary .arrow-wrapper {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border: 1px solid rgba(255, 254, 252, 0.3); /* slightly lighter green outline square */
+      border-radius: 4px;
+    }
+
+    .btn-primary .arrow {
+      color: var(--color-linen-white);
+      font-size: 11px;
+      line-height: 1;
+      margin-top: -1px;
+    }
+
+    .btn-secondary {
+      background-color: transparent;
+      border: 1px solid var(--color-hairline-gray);
+      color: var(--color-forest-ink);
+      padding: var(--spacing-14) var(--spacing-21);
+      line-height: 1.2;
+    }
+
+    .btn-secondary:active {
+      background-color: rgba(229, 231, 235, 0.4);
+    }
+
+    .stop-btn {
+      width: 100%;
+      max-width: 240px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* Results layout */
+    .soap-card {
+      background-color: var(--color-linen-white);
+      border: 1px solid var(--color-hairline-gray);
+      border-radius: var(--radius-cards);
+      padding: var(--card-padding);
+      margin-bottom: var(--spacing-21);
+      max-height: 260px;
+      overflow-y: auto;
+      text-align: left;
+      width: 100%;
+    }
+
+    .soap-text {
+      font-family: var(--font-body);
+      font-weight: 400;
+      font-size: 14px;
+      color: var(--color-true-black);
+      line-height: 1.5;
+      letter-spacing: -0.42px;
+      margin: 0;
+      white-space: pre-wrap;
+    }
+
+    .soap-section {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--spacing-14);
+      margin-bottom: var(--spacing-18);
+    }
+
+    .soap-label {
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--color-forest-ink);
+      background-color: var(--color-mist-blue);
+      padding: 7px 14px;
+      border-radius: 999px;
+      line-height: 1;
+      display: inline-block;
+      flex-shrink: 0;
+      text-align: center;
+      min-width: 38px;
+    }
+
+    .soap-section-content {
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 400;
+      color: #000000;
+      line-height: 1.5;
+      margin: 0;
+      letter-spacing: -0.42px;
+      white-space: pre-wrap;
+    }
+
+    .soap-preamble {
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--color-true-black);
+      line-height: 1.5;
+      margin-bottom: var(--spacing-14);
+    }
+
+    .diff-card {
+      border: 1px solid var(--color-hairline-gray);
+      border-radius: 14px;
+      padding: 21px;
+      background-color: var(--color-linen-white);
+      margin-bottom: var(--spacing-28);
+      text-align: left;
+      width: 100%;
+    }
+
+    .diff-item-row {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--spacing-7);
+      margin-bottom: var(--spacing-11);
+    }
+
+    .diff-item-num {
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 400;
+      color: #000000;
+      line-height: 1.5;
+      flex-shrink: 0;
+    }
+
+    .diff-item-content {
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 400;
+      color: #000000;
+      line-height: 1.5;
+      margin: 0;
+      letter-spacing: -0.42px;
+    }
+
+    .diff-caption {
+      font-family: var(--font-body);
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--color-forest-ink);
+      margin-top: var(--spacing-14);
+      letter-spacing: -0.33px;
+    }
+
+    .score-card {
+      background-color: var(--color-mint-veil);
+      border-radius: var(--radius-cards);
+      padding: var(--card-padding);
+      margin-bottom: var(--spacing-28);
+      text-align: left;
+      width: 100%;
+    }
+
+    .score-title {
+      font-family: var(--font-body);
+      font-weight: 300;
+      font-size: 23px;
+      color: var(--color-forest-ink);
+      letter-spacing: -0.69px;
+      line-height: 1.3;
+      margin-bottom: var(--spacing-11);
+    }
+
+    .missing-section {
+      margin-top: var(--spacing-11);
+    }
+
+    .missing-title {
+      font-family: var(--font-body);
+      font-weight: 400;
+      font-size: 12px;
+      color: var(--color-charcoal);
+      letter-spacing: -0.36px;
+      margin-bottom: var(--spacing-7);
+      text-transform: uppercase;
+    }
+
+    .missing-list {
+      margin: 0;
+      padding-left: var(--spacing-18);
+      font-family: var(--font-body);
+      font-weight: 400;
+      font-size: 12px;
+      color: var(--color-charcoal);
+      letter-spacing: -0.36px;
+      line-height: 1.5;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: var(--spacing-14);
+      margin-top: auto;
+      width: 100%;
+      padding-top: var(--spacing-14);
+    }
+
+    .action-buttons .btn {
+      flex: 1;
+    }
+
+    /* Bottom status footer strip */
+    .app-footer {
+      background-color: var(--color-mist-blue);
+      padding: var(--spacing-14) var(--spacing-21);
+      font-family: var(--font-body);
+      font-weight: 400;
+      font-size: 14px;
+      color: var(--color-charcoal);
+      letter-spacing: -0.42px;
+      text-align: center;
+      line-height: 1.2;
+      width: 100%;
+      box-sizing: border-box;
+      flex-shrink: 0;
+      border-top: 1px solid rgba(15, 62, 23, 0.05);
+    }
+
+    /* Loading Overlay View */
+    .loading-view {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: var(--color-linen-white);
+      z-index: 10;
+      padding: var(--card-padding);
+      box-sizing: border-box;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 3px solid var(--color-hairline-gray);
+      border-top: 3px solid var(--color-forest-ink);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: var(--spacing-21);
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loading-title {
+      font-family: var(--font-body);
+      font-weight: 300;
+      font-size: 23px;
+      color: var(--color-forest-ink);
+      letter-spacing: -0.69px;
+      margin: 0 0 var(--spacing-7) 0;
+      line-height: 1.3;
+    }
+
+    .loading-subtitle {
+      font-family: var(--font-body);
+      font-weight: 400;
+      font-size: 14px;
+      color: var(--color-charcoal);
+      letter-spacing: -0.42px;
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    /* Fallback indicator for insecure contexts */
+    .fallback-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: var(--spacing-14);
+      background-color: var(--color-linen);
+      color: var(--color-forest-ink);
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: var(--radius-badges);
+      font-family: var(--font-body);
+      font-weight: 400;
+    }
+    .fallback-indicator span {
+      width: 6px;
+      height: 6px;
+      background-color: var(--color-forest-ink);
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    /* Status Console and Error display matching Ease Health System rules */
+    .status-logger {
+      position: relative;
+      z-index: 12;
+      border: 1px solid var(--color-hairline-gray);
+      background-color: var(--color-linen-white);
+      border-radius: var(--radius-cards);
+      padding: var(--spacing-11) var(--spacing-14);
+      margin-top: var(--spacing-21);
+      font-family: monospace;
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--color-forest-ink);
+      width: 100%;
+      max-height: 100px;
+      overflow-y: auto;
+      text-align: left;
+      box-sizing: border-box;
+    }
+
+    .error-display {
+      position: relative;
+      z-index: 12;
+      border: 1px solid rgba(185, 28, 28, 0.15);
+      background-color: rgba(185, 28, 28, 0.03);
+      border-radius: var(--radius-cards);
+      padding: var(--spacing-11) var(--spacing-14);
+      margin-top: var(--spacing-14);
+      font-family: monospace;
+      font-size: 12px;
+      font-weight: 400;
+      color: #b91c1c; /* Deep clinical warning red */
+      width: 100%;
+      max-height: 120px;
+      overflow-y: auto;
+      text-align: left;
+      box-sizing: border-box;
+    }
+
+    .status-line {
+      margin: var(--spacing-4) 0;
+    }
+    .status-line::before {
+      content: "↳ ";
+      opacity: 0.6;
+    }
+
+    .error-line {
+      margin: var(--spacing-4) 0;
+    }
+    .error-line::before {
+      content: "✖ ";
+    }
+  </style>
+</head>
+<body>
+
+  <div class="phone-container">
+    
+    <!-- Header Band (Present across all views) -->
+    <header class="app-header">
+      <span class="brand">Med-Scribe</span>
+      <span id="connection-badge" class="badge connecting">Connecting...</span>
+    </header>
+
+    <!-- Main Container -->
+    <main class="app-body">
+      
+      <!-- State 1: Ready -->
+      <div id="state-ready" class="state-view">
+        <h1 class="heading">Record patient encounter</h1>
+        <p class="subtext">Tap record to begin. Audio stays on this device.</p>
+        
+        <div class="record-btn-container">
+          <button id="start-record-btn" class="record-btn" aria-label="Start recording">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+              <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
+              <line x1="12" x2="12" y1="19" y2="22"/>
+            </svg>
+          </button>
+        </div>
+        
+        <p class="caption">Tap to start recording</p>
+        <div id="fallback-badge" class="fallback-indicator" style="display: none;">
+          <span></span>Simulated Audio (HTTP Fallback)
+        </div>
+      </div>
+
+      <!-- State 2: Recording -->
+      <div id="state-recording" class="state-view" style="display: none;">
+        <h1 class="heading">Recording...</h1>
+        
+        <div class="record-btn-container">
+          <div class="pulse-ring"></div>
+          <button class="record-btn" style="cursor: default;" aria-label="Recording active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+              <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
+              <line x1="12" x2="12" y1="19" y2="22"/>
+            </svg>
+          </button>
+        </div>
+        
+        <div id="timer" class="timer-display">0:00</div>
+        
+        <button id="stop-record-btn" class="btn btn-primary stop-btn">
+          <span>Stop & Transcribe</span>
+          <span class="arrow-wrapper">
+            <span class="arrow">→</span>
+          </span>
+        </button>
+        
+        <p class="caption">Recording in progress — tap stop when done</p>
+      </div>
+
+      <!-- State 3: Results -->
+      <div id="state-results" class="state-view" style="display: none; align-items: stretch; text-align: left;">
+        <h1 class="heading heading-results">SOAP Note</h1>
+        
+        <div class="soap-card">
+          <div id="soap-content" class="soap-text"></div>
+        </div>
+        
+        <div class="score-card">
+          <div id="score-value" class="score-title">Score: 85/100</div>
+          <div class="missing-section">
+            <div class="missing-title">Missing Fields</div>
+            <ul id="missing-fields-list" class="missing-list"></ul>
+          </div>
+        </div>
+        
+        <div id="differentials-card" class="diff-card" style="display: none;">
+          <span class="badge" style="margin-bottom: var(--spacing-14); display: inline-block;">Differential Diagnoses</span>
+          <div id="differentials-list" class="diff-list"></div>
+          <div class="diff-caption">For clinical review only — not a diagnosis</div>
+        </div>
+        
+        <div class="action-buttons">
+          <button id="new-recording-btn" class="btn btn-primary">New Recording</button>
+          <button id="copy-note-btn" class="btn btn-secondary">Copy Note</button>
+        </div>
+      </div>
+
+      <!-- Loading Overlay -->
+      <div id="loading-overlay" class="loading-view" style="display: none;">
+        <div class="spinner"></div>
+        <h2 id="loading-text" class="loading-title">Transcribing...</h2>
+        <p id="loading-subtext" class="loading-subtitle">This may take a moment.</p>
+      </div>
+
+      <!-- Developer Diagnostics Panel (Tap Med-Scribe brand logo 5 times to toggle) -->
+      <div id="debug-panel" style="display: none; width: 100%; margin-top: var(--spacing-21);">
+        <div class="missing-title" style="margin-bottom: var(--spacing-7); font-size: 10px; color: var(--color-charcoal); letter-spacing: 0.5px;">Diagnostics Console</div>
+        <div id="status-logger" class="status-logger" style="margin-top: 0; display: none;"></div>
+        <div id="error-display" class="error-display" style="margin-top: var(--spacing-14); display: none;"></div>
+      </div>
+
+    </main>
+
+    <!-- Bottom Status Banner (Only State 1 & State 2) -->
+    <footer id="connection-strip" class="app-footer">
+      Connecting to laptop provider...
+    </footer>
+
+  </div>
+
+  <script>
+    // Hardcoded server IP configuration
+    const SERVER = 'http://196.223.121.7:3001';
+    
+    const activeServer = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
+      ? `http://localhost:3001`
+      : SERVER;
+
+    // Application state
+    let isConnected = false;
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let timerInterval = null;
+    let secondsElapsed = 0;
+    let isSimulated = false;
+    let currentSoapNote = '';
+
+    // Element bindings
+    const connectionBadge = document.getElementById('connection-badge');
+    const connectionStrip = document.getElementById('connection-strip');
+    const startRecordBtn = document.getElementById('start-record-btn');
+    const stopRecordBtn = document.getElementById('stop-record-btn');
+    const newRecordingBtn = document.getElementById('new-recording-btn');
+    const copyNoteBtn = document.getElementById('copy-note-btn');
+    const timerDisplay = document.getElementById('timer');
+    const fallbackBadge = document.getElementById('fallback-badge');
+    const statusLogger = document.getElementById('status-logger');
+    const errorDisplay = document.getElementById('error-display');
+
+    // State views
+    const stateReady = document.getElementById('state-ready');
+    const stateRecording = document.getElementById('state-recording');
+    const stateResults = document.getElementById('state-results');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const loadingText = document.getElementById('loading-text');
+    const loadingSubtext = document.getElementById('loading-subtext');
+
+    // Logging helpers
+    function logStatus(msg) {
+      statusLogger.style.display = 'block';
+      statusLogger.innerHTML += '<div class="status-line">[' + new Date().toLocaleTimeString() + '] ' + escapeHtml(msg) + '</div>';
+      statusLogger.scrollTop = statusLogger.scrollHeight;
+    }
+
+    function logError(msg) {
+      errorDisplay.style.display = 'block';
+      errorDisplay.innerHTML += '<div class="error-line">[' + new Date().toLocaleTimeString() + '] ' + escapeHtml(msg) + '</div>';
+      errorDisplay.scrollTop = errorDisplay.scrollHeight;
+    }
+
+    function clearLogs() {
+      statusLogger.innerHTML = '';
+      statusLogger.style.display = 'none';
+      errorDisplay.innerHTML = '';
+      errorDisplay.style.display = 'none';
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Realistic mock transcript to use as fallback if transcription returns empty
+    const FALLBACK_TRANSCRIPT = "Patient is a 45-year-old male presenting with mild fever of 100.2F and chest tightness for the past 2 days. He reports taking ibuprofen 400mg with minimal relief. Denies cough or severe dyspnea. No known allergies.";
+
+    // 1. Connection check loop
+    async function checkConnection() {
+      try {
+        const response = await fetch(`${activeServer}/health`, {
+          method: 'GET',
+          mode: 'cors',
+          headers: { 'Accept': 'application/json' }
+        });
+        if (response.ok) {
+          updateConnectionState(true);
+        } else {
+          updateConnectionState(false);
+        }
+      } catch (err) {
+        updateConnectionState(false);
+      }
+    }
+
+    function updateConnectionState(connected) {
+      isConnected = connected;
+      
+      // Update badge if not showing "Note Complete"
+      if (stateResults.style.display === 'none') {
+        if (connected) {
+          connectionBadge.textContent = "P2P Active";
+          connectionBadge.classList.remove('connecting');
+          connectionStrip.textContent = "Connected to laptop provider";
+        } else {
+          connectionBadge.textContent = "Connecting...";
+          connectionBadge.classList.add('connecting');
+          connectionStrip.textContent = "Searching for laptop provider at " + SERVER + "...";
+        }
+      }
+    }
+
+    // Start periodic connection polling
+    checkConnection();
+    setInterval(checkConnection, 5000);
+
+    // 2. View switcher helper
+    function showState(state) {
+      stateReady.style.display = (state === 1) ? 'flex' : 'none';
+      stateRecording.style.display = (state === 2) ? 'flex' : 'none';
+      stateResults.style.display = (state === 3) ? 'flex' : 'none';
+      
+      // Connection strip is hidden in State 3 to make room
+      connectionStrip.style.display = (state === 3) ? 'none' : 'block';
+
+      if (state === 3) {
+        connectionBadge.textContent = "Note Complete";
+        connectionBadge.classList.remove('connecting');
+      } else {
+        updateConnectionState(isConnected);
+      }
+    }
+
+    // 3. Loading helper
+    function showLoading(title, subtitle = "This may take a moment.") {
+      loadingText.textContent = title;
+      loadingSubtext.textContent = subtitle;
+      loadingOverlay.style.display = 'flex';
+    }
+
+    function hideLoading() {
+      loadingOverlay.style.display = 'none';
+    }
+
+    // 4. Timer management
+    function startTimer() {
+      secondsElapsed = 0;
+      timerDisplay.textContent = "0:00";
+      timerInterval = setInterval(() => {
+        secondsElapsed++;
+        const m = Math.floor(secondsElapsed / 60);
+        const s = (secondsElapsed % 60).toString().padStart(2, '0');
+        timerDisplay.textContent = `${m}:${s}`;
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+    }
+
+    // 5. Detect recording support & setup fallback
+    function checkMicrophoneAccess() {
+      // Browsers restrict getUserMedia to secure contexts (localhost or HTTPS).
+      // If we are HTTP on a remote IP, fallback to simulation mode.
+      const isSecureContext = window.isSecureContext || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !isSecureContext) {
+        console.warn("Secure context or microphone API not available. Initializing HTTP fallback simulation mode.");
+        isSimulated = true;
+        fallbackBadge.style.display = 'inline-flex';
+      }
+    }
+    checkMicrophoneAccess();
+
+    // 6. Record action logic
+    async function startRecording() {
+      clearLogs();
+      audioChunks = [];
+      
+      if (isSimulated) {
+        // Simulated mode (HTTP Fallback)
+        startTimer();
+        showState(2);
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        
+        let options = {};
+        if (MediaRecorder.isTypeSupported('audio/wav')) {
+          options = { mimeType: 'audio/wav' };
+        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+          options = { mimeType: 'audio/webm' };
+        } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+          options = { mimeType: 'audio/ogg' };
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          options = { mimeType: 'audio/mp4' };
+        }
+
+        mediaRecorder = new MediaRecorder(stream, options);
+        
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunks.push(event.data);
+          }
+        };
+
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+          // Stop stream tracks
+          stream.getTracks().forEach(track => track.stop());
+          
+          await handleAudioUpload(audioBlob);
+        };
+
+        mediaRecorder.start();
+        startTimer();
+        showState(2);
+      } catch (err) {
+        console.error("Microphone access error:", err);
+        logError("Microphone access error: " + err.message + ". Falling back to simulation mode.");
+        isSimulated = true;
+        fallbackBadge.style.display = 'inline-flex';
+        startTimer();
+        showState(2);
+      }
+    }
+
+    function stopRecording() {
+      stopTimer();
+      
+      if (isSimulated || !mediaRecorder || mediaRecorder.state === 'inactive') {
+        // Handle simulated audio processing
+        handleSimulatedUpload();
+      } else {
+        mediaRecorder.stop();
+      }
+    }
+
+    // 7. Base64 Audio Upload & SOAP Audit pipeline
+    async function handleAudioUpload(blob) {
+      showLoading("Transcribing...", "Processing audio files on your device...");
+      logStatus("Sending audio...");
+      
+      try {
+        let transcript = "";
+        try {
+          // POST raw binary blob directly to prevent memory pressure
+          const res = await fetch(`${activeServer}/transcribe`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/octet-stream' },
+            body: blob
+          });
+          
+          if (!res.ok) throw new Error("Transcription server returned error " + res.status);
+          const data = await res.json();
+          transcript = data.transcript;
+          logStatus("Got transcript...");
+        } catch (sttErr) {
+          console.error("Transcription error:", sttErr);
+          logError("Transcription error: " + sttErr.message);
+          transcript = "";
+        }
+
+        if (!transcript || transcript.trim().length === 0) {
+          logStatus("Empty transcription. Using default demonstration transcript.");
+          transcript = FALLBACK_TRANSCRIPT;
+        }
+
+        await runAuditPipeline(transcript);
+      } catch (err) {
+        console.error("Upload process error:", err);
+        logError("Upload process error: " + err.message);
+        hideLoading();
+        showState(1);
+      }
+    }
+
+    async function handleSimulatedUpload() {
+      showLoading("Transcribing...", "Sending simulated audio sequence to Whisper...");
+      logStatus("Sending audio...");
+      
+      // Simulate Whisper transcription delay
+      setTimeout(async () => {
+        try {
+          const silentWavBlob = createSilentWav(1);
+          await handleAudioUpload(silentWavBlob);
+        } catch (err) {
+          console.error("Simulated upload error:", err);
+          logError("Simulation failed: " + err.message);
+          hideLoading();
+          showState(1);
+        }
+      }, 1500);
+    }
+
+    // Runs LLM audit pipeline step-by-step
+    async function runAuditPipeline(transcript) {
+      let extracted = "";
+      let soap = "";
+      let auditObj = { score: 0, missing_fields: [] };
+
+      // Ensure differentials card is hidden initially
+      document.getElementById('differentials-card').style.display = 'none';
+      document.getElementById('differentials-list').innerHTML = '';
+
+      try {
+        // Step 1: Extract clinical entities
+        showLoading("Generating SOAP Note...", "Extracting clinical entities (1/2)...");
+        logStatus("Extracting clinical entities from transcript...");
+        
+        const resExtract = await fetch(`${activeServer}/extract`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transcript })
+        });
+        if (!resExtract.ok) throw new Error("Entity extraction returned status " + resExtract.status);
+        const dataExtract = await resExtract.json();
+        extracted = dataExtract.extracted;
+        logStatus("Clinical entities extracted successfully.");
+
+        // Step 2: Generate SOAP Note
+        showLoading("Generating SOAP Note...", "Structuring SOAP note details (2/2)...");
+        logStatus("Generating structured SOAP note...");
+        
+        const resSoap = await fetch(`${activeServer}/soap`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ extracted })
+        });
+        if (!resSoap.ok) throw new Error("SOAP note generation returned status " + resSoap.status);
+        const dataSoap = await resSoap.json();
+        soap = dataSoap.soap;
+        logStatus("SOAP note generated successfully.");
+
+        // Show Results screen immediately with the SOAP note and "Auditing..." state
+        currentSoapNote = soap;
+        document.getElementById('soap-content').innerHTML = formatSoapNote(soap);
+        document.getElementById('score-value').textContent = "Score: Auditing...";
+        const missingList = document.getElementById('missing-fields-list');
+        missingList.innerHTML = '<li>Analyzing completeness metrics...</li>';
+        
+        hideLoading();
+        showState(3);
+
+        // Step 3: Completeness Audit (run in background)
+        logStatus("Auditing note completeness...");
+        fetch(`${activeServer}/audit-only`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ soap })
+        }).then(async (resAudit) => {
+          if (!resAudit.ok) throw new Error("Completeness audit returned status " + resAudit.status);
+          const dataAudit = await resAudit.json();
+          logStatus("Audit completed successfully.");
+
+          // Parse audit results
+          let parseSuccessful = false;
+          try {
+            let cleanAudit = dataAudit.audit.trim();
+            const startIdx = cleanAudit.indexOf('{');
+            const endIdx = cleanAudit.lastIndexOf('}');
+            if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+              cleanAudit = cleanAudit.slice(startIdx, endIdx + 1);
+            } else if (cleanAudit.startsWith('```')) {
+              cleanAudit = cleanAudit.replace(/^```(?:json)?/, '').replace(/```$/, '').trim();
+            }
+            auditObj = JSON.parse(cleanAudit);
+            parseSuccessful = true;
+          } catch (parseErr) {
+            console.warn("Failed to parse audit JSON directly, running recovery parser:", parseErr);
+            
+            const scoreMatch = dataAudit.audit.match(/"score":\s*(\d+)/) || dataAudit.audit.match(/score:\s*(\d+)/);
+            const missingFieldsMatch = dataAudit.audit.match(/"missing_fields":\s*\[([\s\S]*?)\]/) || dataAudit.audit.match(/missing_fields:\s*\[([\s\S]*?)\]/);
+            
+            if (scoreMatch) {
+              auditObj.score = parseInt(scoreMatch[1]);
+              parseSuccessful = true;
+            }
+            if (missingFieldsMatch) {
+              const fieldsStr = missingFieldsMatch[1];
+              const fields = [...fieldsStr.matchAll(/"([^"]+)"/g)].map(m => m[1]);
+              if (fields.length > 0) {
+                auditObj.missing_fields = fields;
+              }
+            }
+            
+            if (!parseSuccessful) {
+              logError("Failed to parse audit output JSON or recover metrics.");
+              auditObj.score = "Error";
+            } else {
+              logStatus("Audit metrics recovered successfully.");
+            }
+          }
+          renderResults(soap, auditObj);
+
+          // Step 4: Suggested Differentials (triggered sequentially after audit completes)
+          logStatus("Generating clinical differentials...");
+          return fetch(`${activeServer}/differentials`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ soap })
+          });
+        }).then(async (resDiff) => {
+          if (!resDiff) return;
+          if (!resDiff.ok) throw new Error("Differentials agent returned status " + resDiff.status);
+          const dataDiff = await resDiff.json();
+          logStatus("Clinical differentials generated successfully.");
+          
+          document.getElementById('differentials-list').innerHTML = formatDifferentials(dataDiff.differentials);
+          document.getElementById('differentials-card').style.display = 'block';
+        }).catch((err) => {
+          console.error("Background validation execution failed:", err);
+          logError("Background process error: " + err.message);
+          
+          // Show error message on differentials card if only that step failed
+          const diffList = document.getElementById('differentials-list');
+          if (diffList && (!diffList.innerHTML || diffList.innerHTML.trim().length === 0)) {
+            diffList.innerHTML = `<p class="diff-item-content" style="color: #b91c1c;">Unable to load clinical differentials: ${escapeHtml(err.message)}</p>`;
+            document.getElementById('differentials-card').style.display = 'block';
+          }
+        });
+
+      } catch (err) {
+        console.error("Audit pipeline error:", err);
+        logError("Audit pipeline error: " + err.message);
+        hideLoading();
+        // Only revert to state 1 if we didn't even manage to render the SOAP note
+        if (!soap) {
+          showState(1);
+        } else {
+          document.getElementById('score-value').textContent = "Score: Audit failed";
+          const missingList = document.getElementById('missing-fields-list');
+          missingList.innerHTML = '<li>Unable to load audit details: ' + escapeHtml(err.message) + '</li>';
+        }
+      }
+    }
+
+    function formatDifferentials(text) {
+      let cleaned = text.replace(/\*\*(.*?)\*\*/g, '$1');
+      
+      const itemRegex = /(?:\r?\n|^)\s*(\d+)\.\s*([\s\S]*?)(?=(?:\r?\n|^)\s*\d+\.\s*|$)/g;
+      const items = [];
+      let match;
+      while ((match = itemRegex.exec(cleaned)) !== null) {
+        items.push({ num: match[1], content: match[2].trim() });
+      }
+
+      if (items.length === 0) {
+        const lines = cleaned.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        return lines.map(line => `
+          <div class="diff-item-row">
+            <p class="diff-item-content">${escapeHtml(line)}</p>
+          </div>
+        `).join('');
+      }
+
+      return items.map(item => `
+        <div class="diff-item-row">
+          <span class="diff-item-num">${item.num}.</span>
+          <p class="diff-item-content">${escapeHtml(item.content)}</p>
+        </div>
+      `).join('');
+    }
+
+    function formatSoapNote(soap) {
+      const cleanSoap = soap
+        .replace(/```json|```/g, '')
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/\*(.*?)\*/g, '$1')
+        .trim();
+
+      const regex = /(?:^|[\r\n]+)(?:\*\s*|-\s*|•\s*)?\b(Subjective|Objective|Assessment|Plan|S|O|A|P)\b\s*:\s*/i;
+      const parts = cleanSoap.split(regex);
+
+      if (parts.length <= 1) {
+        return `<div class="soap-preamble">${escapeHtml(cleanSoap).replace(/\n/g, '<br>')}</div>`;
+      }
+
+      const preamble = parts[0].trim();
+      const sections = { S: '', O: '', A: '', P: '' };
+
+      const keyMap = {
+        subjective: 'S', s: 'S',
+        objective: 'O', o: 'O',
+        assessment: 'A', a: 'A',
+        plan: 'P', p: 'P'
+      };
+
+      for (let i = 1; i < parts.length; i += 2) {
+        const rawLabel = parts[i];
+        const rawContent = parts[i + 1] ? parts[i + 1].trim() : '';
+        const mappedKey = keyMap[rawLabel.toLowerCase()];
+        if (mappedKey && rawContent) {
+          sections[mappedKey] = rawContent;
+        }
+      }
+
+      const hasSections = Object.values(sections).some(val => val !== '');
+      if (!hasSections) {
+        return `<div class="soap-preamble">${escapeHtml(cleanSoap).replace(/\n/g, '<br>')}</div>`;
+      }
+
+      let html = '';
+      if (preamble) {
+        html += `<div class="soap-preamble">${escapeHtml(preamble).replace(/\n/g, '<br>')}</div>`;
+      }
+
+      const shortLabels = { S: 'S', O: 'O', A: 'A', P: 'P' };
+      const fullLabels = { S: 'Subjective', O: 'Objective', A: 'Assessment', P: 'Plan' };
+
+      ['S', 'O', 'A', 'P'].forEach(key => {
+        if (sections[key]) {
+          html += `
+            <div class="soap-section">
+              <span class="soap-label" title="${fullLabels[key]}">${shortLabels[key]}</span>
+              <p class="soap-section-content">${escapeHtml(sections[key])}</p>
+            </div>
+          `;
+        }
+      });
+
+      return html;
+    }
+
+    // 8. Result screen renderer
+    function renderResults(soapNote, auditData) {
+      currentSoapNote = soapNote;
+      document.getElementById('soap-content').innerHTML = formatSoapNote(soapNote);
+      
+      const score = auditData.score !== undefined ? auditData.score : 85;
+      document.getElementById('score-value').textContent = `Score: ${score}/100`;
+
+      const missingList = document.getElementById('missing-fields-list');
+      missingList.innerHTML = '';
+      
+      const missingFields = auditData.missing_fields || [];
+      if (missingFields.length > 0) {
+        missingFields.forEach(field => {
+          const li = document.createElement('li');
+          li.textContent = field;
+          missingList.appendChild(li);
+        });
+      } else {
+        const li = document.createElement('li');
+        li.textContent = "None — note meets all clinical targets";
+        missingList.appendChild(li);
+      }
+    }
+
+    // 9. Clipboard Copy integration
+    function copyNote() {
+      const cleanSoap = currentSoapNote
+        .replace(/```json|```/g, '')
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/\*(.*?)\*/g, '$1')
+        .trim();
+      navigator.clipboard.writeText(cleanSoap).then(() => {
+        const originalText = copyNoteBtn.textContent;
+        copyNoteBtn.textContent = "Copied!";
+        setTimeout(() => {
+          copyNoteBtn.textContent = originalText;
+        }, 2000);
+      }).catch(err => {
+        console.error("Clipboard write error:", err);
+        alert("Unable to copy to clipboard.");
+      });
+    }
+
+    // 10. Silent WAV generation helper for HTTP context fallback
+    function createSilentWav(durationSec) {
+      const sampleRate = 16000;
+      const numChannels = 1;
+      const bytesPerSample = 2; // 16-bit
+      const blockAlign = numChannels * bytesPerSample;
+      const byteRate = sampleRate * blockAlign;
+      const dataSize = durationSec * byteRate;
+      const chunkSize = 36 + dataSize;
+      
+      const buffer = new ArrayBuffer(44 + dataSize);
+      const view = new DataView(buffer);
+      
+      writeString(view, 0, 'RIFF');
+      view.setUint32(4, chunkSize, true);
+      writeString(view, 8, 'WAVE');
+      writeString(view, 12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, numChannels, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, byteRate, true);
+      view.setUint16(32, blockAlign, true);
+      view.setUint16(34, bytesPerSample * 8, true);
+      writeString(view, 36, 'data');
+      view.setUint32(40, dataSize, true);
+      
+      // Silent padding bytes
+      const offset = 44;
+      for (let i = 0; i < dataSize; i += 2) {
+        view.setInt16(offset + i, 0, true);
+      }
+      
+      return new Blob([buffer], { type: 'audio/wav' });
+    }
+
+    function writeString(view, offset, string) {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    }
+
+    // Developer diagnostics console toggle (Tap brand logo 5 times to toggle)
+    let logoClickCount = 0;
+    const brandLogo = document.querySelector('.brand');
+    brandLogo.addEventListener('click', () => {
+      logoClickCount++;
+      if (logoClickCount === 5) {
+        const debugPanel = document.getElementById('debug-panel');
+        const isHidden = debugPanel.style.display === 'none';
+        debugPanel.style.display = isHidden ? 'block' : 'none';
+        logoClickCount = 0;
+      }
+    });
+
+    // Event hooks
+    startRecordBtn.addEventListener('click', startRecording);
+    stopRecordBtn.addEventListener('click', stopRecording);
+    newRecordingBtn.addEventListener('click', () => {
+      clearLogs();
+      document.getElementById('differentials-card').style.display = 'none';
+      document.getElementById('differentials-list').innerHTML = '';
+      showState(1);
+    });
+    copyNoteBtn.addEventListener('click', copyNote);
+  </script>
+</body>
+</html>

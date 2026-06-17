@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@qvac/sdk": "^0.12.2",
+    "cors": "^2.8.6",
+    "hyperswarm": "^4.17.0"
+  }
+}
