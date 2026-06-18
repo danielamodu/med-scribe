@@ -1566,7 +1566,8 @@
         const ragCard = document.getElementById('rag-context-card');
         const ragContent = document.getElementById('rag-context-content');
         if (dataAudit.historicalContext) {
-          ragContent.innerHTML = escapeHtml(dataAudit.historicalContext).replace(/\n/g, '<br>');
+          const cleanedHistory = cleanHistoryText(dataAudit.historicalContext);
+          ragContent.innerHTML = escapeHtml(cleanedHistory).replace(/\n/g, '<br>');
           ragCard.style.display = 'block';
         } else {
           ragCard.style.display = 'none';
@@ -1745,6 +1746,55 @@
         followupDiv.innerHTML = '<span style="color: #b91c1c;">Failed to load clinical questions.</span>';
       }
     };
+    function cleanHistoryText(content) {
+      if (!content) return '';
+      let text = content.trim();
+      
+      // Look for "soap": "..." pattern
+      const soapRegex = /"soap"\s*:\s*"((?:[^"\\]|\\.)*)"/s;
+      const match = text.match(soapRegex);
+      
+      if (match) {
+        let soapVal = match[1];
+        soapVal = soapVal
+          .replace(/\\n/g, '\n')
+          .replace(/\\r/g, '\r')
+          .replace(/\\t/g, '\t')
+          .replace(/\\"/g, '"')
+          .replace(/\\\\/g, '\\');
+          
+        const startBrace = text.indexOf('{');
+        let prefix = '';
+        if (startBrace !== -1) {
+          prefix = text.substring(0, startBrace).trim();
+        }
+        return prefix ? prefix + "\n\n" + soapVal : soapVal;
+      }
+      
+      // Fallback: try parsing JSON strictly
+      const startBrace = text.indexOf('{');
+      const endBrace = text.lastIndexOf('}');
+      if (startBrace !== -1 && endBrace !== -1 && endBrace > startBrace) {
+        try {
+          let jsonStr = text.substring(startBrace, endBrace + 1);
+          const arrayFormat = '[' + jsonStr.replace(/}\s*{/g, '},{') + ']';
+          let parsed;
+          try {
+            const arr = JSON.parse(arrayFormat);
+            parsed = Object.assign({}, ...arr);
+          } catch (arrErr) {
+            parsed = JSON.parse(jsonStr);
+          }
+          if (parsed && parsed.soap) {
+            const prefix = text.substring(0, startBrace).trim();
+            return prefix ? prefix + "\n\n" + parsed.soap : parsed.soap;
+          }
+        } catch (e) {
+          console.warn("Failed to parse historical JSON content:", e);
+        }
+      }
+      return content;
+    }
 
     function formatSoapNote(soap) {
       const keyMap = {
@@ -2028,7 +2078,7 @@
 
         let html = '';
         data.results.forEach((item, idx) => {
-          let displayContent = item.content;
+          let displayContent = cleanHistoryText(item.content);
           const prefixRegex = new RegExp(`^Patient\\s+${patientId}(\\s*\\([^)]*\\))?:\\s*`, 'i');
           displayContent = displayContent.replace(prefixRegex, '');
           

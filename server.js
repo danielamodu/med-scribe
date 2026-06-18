@@ -269,7 +269,21 @@ Your response MUST match this exact schema:
     }
   } catch (parseErr) {
     console.error("Failed to parse combined JSON output, trying simple text fallback:", parseErr);
-    soap = combinedOutput;
+    
+    // Attempt robust regex extraction of the SOAP content
+    const soapRegex = /"soap"\s*:\s*"((?:[^"\\]|\\.)*)"/s;
+    const match = combinedOutput.match(soapRegex);
+    if (match) {
+      let soapVal = match[1];
+      soap = soapVal
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\r')
+        .replace(/\\t/g, '\t')
+        .replace(/\\"/g, '"')
+        .replace(/\\\\/g, '\\');
+    } else {
+      soap = combinedOutput;
+    }
     
     // Simple text extraction heuristics as fallback
     const symptomsMatch = combinedOutput.match(/symptoms?\s*:\s*([^]*?)(?=\n\n|\n[A-Z]|$)/i);
