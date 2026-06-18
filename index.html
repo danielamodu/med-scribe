@@ -1619,25 +1619,44 @@
         // Render audit results
         renderResults(soap, auditObj);
         
-        // Step 2: Suggested Differentials
-        showLoading("Generating differentials...", "Suggesting diagnoses for clinical review...");
-        logStatus("Generating clinical differentials...");
-        
-        const resDiff = await fetch(`${activeServer}/differentials`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ soap })
-        });
-        
-        if (!resDiff.ok) throw new Error("Differentials agent returned status " + resDiff.status);
-        const dataDiff = await resDiff.json();
-        logStatus("Clinical differentials generated successfully.");
-        
-        document.getElementById('differentials-list').innerHTML = formatDifferentials(dataDiff.differentials);
-        document.getElementById('differentials-card').style.display = 'block';
-        
+        // Transition to results screen immediately (no blocking screen delay)
         hideLoading();
         showState(3);
+
+        // Fetch Suggested Differentials in the background
+        const diffCard = document.getElementById('differentials-card');
+        const diffList = document.getElementById('differentials-list');
+
+        diffList.innerHTML = `
+          <div class="differentials-loading" style="font-family: var(--font-body); font-size: 13px; color: var(--color-charcoal); font-weight: 300; display: flex; align-items: center; gap: var(--spacing-7); padding: var(--spacing-14) 0;">
+            <div class="spinner" style="width: 16px; height: 16px; border: 2px solid var(--color-hairline-gray); border-top: 2px solid var(--color-forest-ink); margin-bottom: 0;"></div>
+            <span>Analyzing SOAP note to suggest differential diagnoses...</span>
+          </div>
+        `;
+        diffCard.style.display = 'block';
+        logStatus("Generating clinical differentials in the background...");
+
+        try {
+          const resDiff = await fetch(`${activeServer}/differentials`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ soap })
+          });
+          
+          if (!resDiff.ok) throw new Error("Differentials agent returned status " + resDiff.status);
+          const dataDiff = await resDiff.json();
+          logStatus("Clinical differentials generated successfully.");
+          
+          diffList.innerHTML = formatDifferentials(dataDiff.differentials);
+        } catch (diffErr) {
+          console.error("Failed to fetch differentials:", diffErr);
+          logStatus("Clinical differentials generation failed.");
+          diffList.innerHTML = `
+            <div style="color: #b91c1c; font-size: 13px; font-weight: 300; padding: var(--spacing-11) 0;">
+              Differential diagnosis generation failed. Check that the server is running and try again.
+            </div>
+          `;
+        }
       } catch (err) {
         if (auditTimer1) clearTimeout(auditTimer1);
         if (auditTimer2) clearTimeout(auditTimer2);

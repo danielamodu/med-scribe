@@ -216,11 +216,10 @@ async function runPipeline(transcript, patientId = null, patientName = null) {
   }
 
   const systemPrompt = `You are a precise clinical AI assistant compiling a patient visit.
-Analyze the patient encounter transcript. 
-First, generate a structured, professional SOAP Note. Do NOT include any introductory or conversational text like "Here is your note" - start directly with the SOAP content.
-Second, extract all medical entities into categories (symptoms, medications, vitals, allergies, history).
+Analyze the patient encounter transcript and return a SINGLE, unified JSON object.
+Do NOT output multiple JSON blocks, and do NOT include any introductory or conversational text. Start directly with the JSON object.
 
-You MUST return your response strictly as a valid JSON object matching this structure (no markdown formatting outside of JSON):
+Your response MUST match this exact schema:
 {
   "soap": "Subjective:\\n[symptoms, patient description]\\n\\nObjective:\\n[vitals, exam details]\\n\\nAssessment:\\n[diagnosis, clinical impression]\\n\\nPlan:\\n[treatment plan, follow up]",
   "extracted": {
@@ -238,15 +237,32 @@ You MUST return your response strictly as a valid JSON object matching this stru
   }
 
   console.log("Starting combined SOAP note & entity extraction inference call...");
-  const combinedOutput = await complete(`${systemPrompt}\n\n${userPrompt}`, 600);
+  const combinedOutput = await complete(`${systemPrompt}\n\n${userPrompt}`, 800);
   console.log("Combined inference call complete.");
 
   let soap = '';
   let extObj = { symptoms: [], medications: [], vitals: [], allergies: [], history: [] };
 
   try {
-    const cleanJson = combinedOutput.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(cleanJson);
+    let cleanJson = combinedOutput.trim();
+    cleanJson = cleanJson.replace(/```json|```/g, '').trim();
+    
+    let parsed;
+    // Check if it returned two adjacent JSON blocks (e.g. } {) and merge them if so
+    const arrayFormat = '[' + cleanJson.replace(/}\s*{/g, '},{') + ']';
+    try {
+      const arr = JSON.parse(arrayFormat);
+      parsed = Object.assign({}, ...arr);
+    } catch (arrErr) {
+      // Fallback: extract the single object
+      const firstBrace = cleanJson.indexOf('{');
+      const lastBrace = cleanJson.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        cleanJson = cleanJson.substring(firstBrace, lastBrace + 1);
+      }
+      parsed = JSON.parse(cleanJson);
+    }
+    
     soap = parsed.soap || '';
     if (parsed.extracted) {
       extObj = parsed.extracted;
