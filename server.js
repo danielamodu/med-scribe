@@ -185,18 +185,26 @@ async function runPipeline(transcript, patientId = null, patientName = null) {
   if (patientId && embeddingModelId) {
     try {
       console.log(`Searching RAG clinical history for patientId: ${patientId}`);
+      // Anchor query with full prefix so the embedding model has a stronger signal
+      const ragQuery = `Patient ${patientId} clinical history SOAP note`;
       const searchResult = await qvac.ragSearch({
         modelId: embeddingModelId,
-        query: `Patient ${patientId}`,
-        topK: 3,
+        query: ragQuery,
+        topK: 5,  // fetch more, then filter down to matching patient
         workspace: "med-scribe-clinical-history"
       });
-      if (searchResult && searchResult.length > 0) {
-        // Only use the most recent 1 match, not all matches
-        historicalContext = searchResult[0].content;
-        console.log(`Retrieved RAG context:\n${historicalContext}`);
+      // Post-filter: only keep documents that begin with this patient's prefix.
+      // The embedding search is semantic — without this, Patient 101 results can
+      // bleed into a Patient 102 query because the vectors are very close.
+      const prefix = `patient ${patientId.toLowerCase()}`;
+      const filtered = (searchResult || []).filter(r =>
+        r.content && r.content.toLowerCase().startsWith(prefix)
+      );
+      if (filtered.length > 0) {
+        historicalContext = filtered[0].content;
+        console.log(`Retrieved RAG context for patient ${patientId}:\n${historicalContext}`);
       } else {
-        console.log('No historical context found in RAG.');
+        console.log(`No historical context found for patient ${patientId} (${(searchResult||[]).length} raw results, none matched prefix).`);
       }
     } catch (e) {
       console.error('RAG search during pipeline failed:', e);
@@ -407,13 +415,20 @@ app.post('/rag-search', async (req, res) => {
     return res.status(400).json({ error: 'patientId required' });
   }
   try {
+    const ragQuery = `Patient ${patientId} clinical history SOAP note`;
     const searchResult = await qvac.ragSearch({
       modelId: embeddingModelId,
-      query: `Patient ${patientId}`,
-      topK: 3,
+      query: ragQuery,
+      topK: 5,
       workspace: "med-scribe-clinical-history"
     });
-    res.json({ results: searchResult });
+    // Post-filter: only return documents that belong to this patient.
+    // Prevents cross-patient bleed from semantic nearest-neighbour search.
+    const prefix = `patient ${patientId.toLowerCase()}`;
+    const filtered = (searchResult || []).filter(r =>
+      r.content && r.content.toLowerCase().startsWith(prefix)
+    );
+    res.json({ results: filtered });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

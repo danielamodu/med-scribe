@@ -90,7 +90,8 @@
       display: flex;
       flex-direction: column;
       position: relative;
-      overflow: hidden;
+      /* overflow removed here so absolutely-positioned tooltips/menus
+         can escape the shell. Scrolling is contained in .app-body instead. */
       border: 1px solid var(--color-hairline-gray);
       border-radius: 28px;
     }
@@ -105,6 +106,7 @@
         max-height: 100vh;
         border: none;
         border-radius: 0;
+        /* overflow intentionally omitted — .app-body handles scroll containment */
       }
     }
 
@@ -132,7 +134,7 @@
     .badge {
       font-family: var(--font-body);
       font-weight: 400;
-      font-size: 12px;
+      font-size: 13px;
       letter-spacing: -0.36px;
       background-color: var(--color-mist-blue);
       color: var(--color-charcoal);
@@ -238,6 +240,17 @@
       transform: scale(0.95);
     }
 
+    /* Disabled state — fields not yet filled */
+    .record-btn.btn-disabled {
+      background-color: var(--color-hairline-gray);
+      cursor: not-allowed;
+      pointer-events: none;
+      opacity: 0.55;
+    }
+    .record-btn.btn-disabled:active {
+      transform: none;
+    }
+
     .record-btn svg {
       width: 28px;
       height: 28px;
@@ -286,7 +299,7 @@
     .caption {
       font-family: var(--font-body);
       font-weight: 400;
-      font-size: 12px;
+      font-size: 13px;
       color: var(--color-charcoal);
       letter-spacing: -0.36px;
       line-height: 1.5;
@@ -335,7 +348,7 @@
 
     .btn-primary .arrow {
       color: var(--color-linen-white);
-      font-size: 11px;
+      font-size: 13px;
       line-height: 1;
       margin-top: -1px;
     }
@@ -388,7 +401,7 @@
 
     .soap-label {
       font-family: var(--font-body);
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 400;
       color: var(--color-forest-ink);
       background-color: var(--color-mist-blue);
@@ -444,7 +457,7 @@
       display: flex;
       flex-direction: column;
       border-bottom: 1px solid var(--color-hairline-gray);
-      padding: var(--spacing-11) var(--spacing-4);
+      padding: var(--spacing-11) var(--spacing-14);
       cursor: pointer;
       transition: background-color 0.2s ease;
     }
@@ -467,9 +480,9 @@
     .diff-item-followups {
       margin-top: var(--spacing-9);
       padding: var(--spacing-9) var(--spacing-14);
-      background-color: var(--color-linen-white);
-      border-left: 2px solid var(--color-mist-blue);
-      font-size: 12px;
+      background-color: rgba(182, 206, 213, 0.18); /* mist-blue tint — replaces banned border-left stripe */
+      border-radius: var(--radius-nav);
+      font-size: 13px;
       color: var(--color-charcoal);
       line-height: 1.5;
       animation: fadeIn 0.3s ease;
@@ -497,7 +510,7 @@
 
     .diff-caption {
       font-family: var(--font-body);
-      font-size: 11px;
+      font-size: 13px;
       font-weight: 400;
       color: var(--color-forest-ink);
       margin-top: var(--spacing-14);
@@ -508,7 +521,7 @@
       background-color: var(--color-linen-white);
       border: 1px solid var(--color-hairline-gray);
       border-radius: var(--radius-cards);
-      padding: var(--card-padding);
+      padding: var(--spacing-21);
       margin-bottom: var(--spacing-28);
       text-align: left;
       width: 100%;
@@ -556,7 +569,7 @@
     .missing-title {
       font-family: var(--font-body);
       font-weight: 400;
-      font-size: 11px;
+      font-size: 13px;
       color: var(--color-charcoal);
       letter-spacing: -0.3px;
       margin-bottom: var(--spacing-11);
@@ -638,7 +651,7 @@
       height: 100%;
       background-color: var(--color-linen-white);
       z-index: 10;
-      padding: var(--card-padding);
+      padding: var(--spacing-21);
       box-sizing: border-box;
     }
 
@@ -685,8 +698,8 @@
       margin-top: var(--spacing-14);
       background-color: var(--color-linen);
       color: var(--color-forest-ink);
-      font-size: 11px;
-      padding: 4px 10px;
+      font-size: 13px;
+      padding: 6px 12px;
       border-radius: var(--radius-badges);
       font-family: var(--font-body);
       font-weight: 400;
@@ -709,7 +722,7 @@
       padding: var(--spacing-11) var(--spacing-14);
       margin-top: var(--spacing-21);
       font-family: monospace;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 400;
       color: var(--color-forest-ink);
       width: 100%;
@@ -728,7 +741,7 @@
       padding: var(--spacing-11) var(--spacing-14);
       margin-top: var(--spacing-14);
       font-family: monospace;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 400;
       color: #b91c1c; /* Deep clinical warning red */
       width: 100%;
@@ -776,7 +789,7 @@
       border: none;
       background: none;
       font-family: var(--font-body);
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 300;
       color: var(--color-graphite);
       padding: var(--spacing-7) 0;
@@ -795,17 +808,18 @@
 
     .metrics-table-container {
       width: 100%;
-      overflow-x: auto;
+      overflow: auto;
       border: 1px solid var(--color-hairline-gray);
       border-radius: var(--radius-cards);
       background-color: var(--color-linen-white);
+      padding: var(--spacing-14); /* inset so table cells breathe against the border */
     }
 
     .metrics-table {
       width: 100%;
       border-collapse: collapse;
       font-family: var(--font-body);
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 400;
       text-align: left;
     }
@@ -815,14 +829,24 @@
       color: var(--color-forest-ink);
       font-weight: 400;
       border-bottom: 1px solid var(--color-hairline-gray);
-      padding: var(--spacing-9) var(--spacing-11);
+      padding: var(--spacing-11) var(--spacing-14);
+    }
+
+    .metrics-table th:first-child,
+    .metrics-table td:first-child {
+      padding-left: var(--spacing-21);
+    }
+
+    .metrics-table th:last-child,
+    .metrics-table td:last-child {
+      padding-right: var(--spacing-21);
     }
 
     .metrics-table td {
       color: var(--color-charcoal);
       font-weight: 400;
       border-bottom: 1px solid var(--color-hairline-gray);
-      padding: var(--spacing-9) var(--spacing-11);
+      padding: var(--spacing-11) var(--spacing-14);
     }
 
     .metrics-table tr:last-child td {
@@ -839,7 +863,7 @@
     .patient-input-label {
       font-family: var(--font-body);
       font-weight: 400;
-      font-size: 12px;
+      font-size: 13px;
       color: var(--color-forest-ink);
       margin-bottom: var(--spacing-7);
       display: block;
@@ -864,7 +888,20 @@
     }
 
     .patient-input:focus {
-      border-color: var(--color-sage-wash);
+      border-color: var(--color-forest-ink);
+    }
+
+    .patient-input.input-error {
+      border-color: #b91c1c;
+      animation: shake 0.35s ease;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%       { transform: translateX(-5px); }
+      40%       { transform: translateX(5px); }
+      60%       { transform: translateX(-4px); }
+      80%       { transform: translateX(4px); }
     }
 
     .patient-input-grid {
@@ -880,7 +917,7 @@
     .past-encounter-card {
       border: 1px solid var(--color-hairline-gray);
       border-radius: var(--radius-cards);
-      padding: var(--card-padding);
+      padding: var(--spacing-21);
       background-color: var(--color-linen-white);
       text-align: left;
       margin-bottom: var(--spacing-14);
@@ -935,12 +972,12 @@
         
         <div class="patient-input-grid">
           <div>
-            <label for="patient-id-input" class="patient-input-label">Patient ID</label>
-            <input type="text" id="patient-id-input" class="patient-input" placeholder="e.g. 101" />
+            <label for="patient-id-input" class="patient-input-label">Patient ID <span style="color:#b91c1c;" aria-hidden="true">*</span></label>
+            <input type="text" id="patient-id-input" class="patient-input" placeholder="e.g. PT-001" autocomplete="off" />
           </div>
           <div>
-            <label for="patient-name-input" class="patient-input-label">Patient Name</label>
-            <input type="text" id="patient-name-input" class="patient-input" placeholder="e.g. John Doe" />
+            <label for="patient-name-input" class="patient-input-label">Patient Name <span style="color:#b91c1c;" aria-hidden="true">*</span></label>
+            <input type="text" id="patient-name-input" class="patient-input" placeholder="e.g. Jane Smith" autocomplete="off" />
           </div>
         </div>
         
@@ -954,7 +991,7 @@
           </button>
         </div>
         
-        <p class="caption">Tap to start recording</p>
+        <p class="caption" id="record-caption">Enter patient details above to begin</p>
         <div id="fallback-badge" class="fallback-indicator" style="display: none;">
           <span></span>Simulated Audio (HTTP Fallback)
         </div>
@@ -1046,11 +1083,11 @@
 
         <!-- System Architecture & Security Docs -->
         <details class="docs-collapsible" style="margin-top: var(--spacing-21); border: 1px dashed var(--color-hairline-gray); border-radius: var(--radius-cards); padding: var(--spacing-14); background-color: var(--color-linen-white);">
-          <summary style="font-family: var(--font-body); font-size: 12px; font-weight: 400; color: var(--color-forest-ink); cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; user-select: none;">
+          <summary style="font-family: var(--font-body); font-size: 13px; font-weight: 400; color: var(--color-forest-ink); cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; user-select: none;">
             <span>System Architecture & Docs</span>
             <span style="font-size: 10px;">▼</span>
           </summary>
-          <div style="font-family: var(--font-body); font-size: 11px; font-weight: 300; color: var(--color-graphite); margin-top: var(--spacing-11); line-height: 1.5;">
+          <div style="font-family: var(--font-body); font-size: 13px; font-weight: 300; color: var(--color-graphite); margin-top: var(--spacing-11); line-height: 1.5;">
             <p style="margin: 0 0 var(--spacing-7);"><strong>1. Raw Audio Streaming</strong>: Client streams raw binary audio blobs directly to avoid Base64 RAM spikes and mobile OOM crashes.</p>
             <p style="margin: 0 0 var(--spacing-7);"><strong>2. local-first Execution</strong>: Whisper Small Q8 (STT) and MedGemma 4B IT (LLM) models run entirely offline on consumer hardware via <code>@qvac/sdk</code>.</p>
             <p style="margin: 0 0 var(--spacing-7);"><strong>3. Decentralized Mesh</strong>: Edge nodes discover and announce under <code>med-scribe-v1</code> using a Hyperswarm DHT P2P network bridge.</p>
@@ -1130,7 +1167,31 @@
     const loadingText = document.getElementById('loading-text');
     const loadingSubtext = document.getElementById('loading-subtext');
     
+    const patientIdInput   = document.getElementById('patient-id-input');
     const patientNameInput = document.getElementById('patient-name-input');
+
+    // --- Patient field validation ---
+    // The record button is only enabled when both fields have content.
+    function validatePatientFields() {
+      const idOk   = patientIdInput.value.trim().length > 0;
+      const nameOk = patientNameInput.value.trim().length > 0;
+      const caption = document.getElementById('record-caption');
+
+      if (idOk && nameOk) {
+        startRecordBtn.classList.remove('btn-disabled');
+        startRecordBtn.setAttribute('aria-disabled', 'false');
+        if (caption) caption.textContent = 'Tap to start recording';
+      } else {
+        startRecordBtn.classList.add('btn-disabled');
+        startRecordBtn.setAttribute('aria-disabled', 'true');
+        if (caption) {
+          caption.textContent = !idOk && !nameOk
+            ? 'Enter Patient ID and Name to begin'
+            : !idOk ? 'Enter a Patient ID to begin'
+            : 'Enter a Patient Name to begin';
+        }
+      }
+    }
 
     // Toggle Buttons
     const toggleNoteBtn = document.getElementById('toggle-note-btn');
@@ -1162,6 +1223,42 @@
 
     function escapeHtml(str) {
       return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Maps raw JS/network errors to plain clinical English.
+    // Raw technical strings (WebSocket URLs, status codes, stack traces) must
+    // never reach a clinician in production. The raw message is still logged
+    // to the browser console via console.error() at each call site.
+    function friendlyError(err) {
+      const msg = (err && err.message) ? err.message : String(err);
+      const m = msg.toLowerCase();
+
+      if (m.includes('failed to fetch') || m.includes('networkerror') || m.includes('network request failed'))
+        return 'Cannot reach the Med-Scribe server. Check that it is running and try again.';
+
+      if (m.includes('connection refused') || m.includes('econnrefused'))
+        return 'Server not responding. Make sure Med-Scribe is started on your laptop.';
+
+      if (m.includes('websocket') || m.includes('ws://'))
+        return 'Connection to the local server was interrupted. Please refresh and try again.';
+
+      if (m.includes('transcription server returned error') || m.includes('status 5'))
+        return 'The transcription service encountered an error. The session will use the demonstration transcript.';
+
+      if (m.includes('status 4'))
+        return 'The server could not process this request. Please check your Patient ID and try again.';
+
+      if (m.includes('differentials agent returned'))
+        return 'Differential diagnosis generation failed. The SOAP note has been saved; try again from the results screen.';
+
+      if (m.includes('parse') || m.includes('json') || m.includes('syntax'))
+        return 'Received an unexpected response from the server. The note may be incomplete — please review carefully.';
+
+      if (m.includes('notallowederror') || m.includes('permission denied') || m.includes('microphone'))
+        return 'Microphone access was denied. Please allow microphone access in your browser settings and try again.';
+
+      // Fallback: hide the raw message, give a generic recovery prompt
+      return 'Something went wrong. Please try again or restart the server.';
     }
 
     // Realistic mock transcript to use as fallback if transcription returns empty
@@ -1336,7 +1433,7 @@
         isStartRecordingInProgress = false;
       } catch (err) {
         console.error("Microphone access error:", err);
-        logError("Microphone access error: " + err.message + ". Falling back to simulation mode.");
+        logError(friendlyError(err));
         isSimulated = true;
         fallbackBadge.style.display = 'inline-flex';
         startTimer();
@@ -1377,7 +1474,7 @@
           logStatus("Got transcript...");
         } catch (sttErr) {
           console.error("Transcription error:", sttErr);
-          logError("Transcription error: " + sttErr.message);
+          logError(friendlyError(sttErr));
           transcript = "";
         }
 
@@ -1389,7 +1486,7 @@
         await runAuditPipeline(transcript);
       } catch (err) {
         console.error("Upload process error:", err);
-        logError("Upload process error: " + err.message);
+        logError(friendlyError(err));
         hideLoading();
         showState(1);
       }
@@ -1406,7 +1503,7 @@
           await handleAudioUpload(silentWavBlob);
         } catch (err) {
           console.error("Simulated upload error:", err);
-          logError("Simulation failed: " + err.message);
+          logError(friendlyError(err));
           hideLoading();
           showState(1);
         }
@@ -1512,7 +1609,7 @@
           }
           
           if (!parseSuccessful) {
-            logError("Failed to parse audit output JSON or recover metrics.");
+            logError('Could not read the audit score. Please review the note manually.');
             auditObj.score = "Error";
           } else {
             logStatus("Audit metrics recovered successfully.");
@@ -1545,7 +1642,7 @@
         if (auditTimer1) clearTimeout(auditTimer1);
         if (auditTimer2) clearTimeout(auditTimer2);
         console.error("Audit pipeline execution failed:", err);
-        logError("Audit pipeline error: " + err.message);
+        logError(friendlyError(err));
         hideLoading();
         showState(1);
       }
@@ -1866,7 +1963,7 @@
         console.error("Error loading metrics:", err);
         tableBody.innerHTML = `
           <tr>
-            <td colspan="5" style="text-align: center; color: #b91c1c; padding: var(--spacing-14);">Error loading metrics: ${escapeHtml(err.message)}</td>
+            <td colspan="5" style="text-align: center; color: #b91c1c; padding: var(--spacing-14);">Unable to load metrics. Ensure the server is running and try again.</td>
           </tr>
         `;
       }
@@ -1920,7 +2017,7 @@
             <div class="past-encounter-card">
               <div class="past-encounter-header">
                 <span style="font-family: var(--font-body); font-weight: 400; font-size: 13px; color: var(--color-forest-ink);">Encounter #${idx + 1}</span>
-                <span style="font-family: var(--font-body); font-weight: 300; font-size: 11px; color: var(--color-charcoal);">RAG Match Score: ${(item.score * 100).toFixed(0)}%</span>
+                <span style="font-family: var(--font-body); font-weight: 300; font-size: 13px; color: var(--color-charcoal);">RAG Match Score: ${(item.score * 100).toFixed(0)}%</span>
               </div>
               <div class="soap-text" style="font-size: 13px; color: var(--color-true-black);">${formatSoapNote(displayContent)}</div>
             </div>
@@ -1931,7 +2028,7 @@
         console.error("Error fetching patient history:", err);
         historyContainer.innerHTML = `
           <div style="text-align: center; color: #b91c1c; padding: var(--spacing-21); border: 1px dashed #fca5a5; border-radius: var(--radius-cards); font-weight: 300;">
-            Failed to retrieve history: ${escapeHtml(err.message)}
+            Could not retrieve patient history. Check that the server is running and try again.
           </div>
         `;
       }
@@ -1971,17 +2068,40 @@
     fetchMetrics();
 
     // Event hooks
-    startRecordBtn.addEventListener('click', startRecording);
+    // Wire validation to both inputs
+    patientIdInput.addEventListener('input', validatePatientFields);
+    patientNameInput.addEventListener('input', validatePatientFields);
+
+    // Clear input-error highlight on next keystroke
+    patientIdInput.addEventListener('input', () => patientIdInput.classList.remove('input-error'));
+    patientNameInput.addEventListener('input', () => patientNameInput.classList.remove('input-error'));
+
+    startRecordBtn.addEventListener('click', () => {
+      const idOk   = patientIdInput.value.trim().length > 0;
+      const nameOk = patientNameInput.value.trim().length > 0;
+      // Guard: shake empty fields if someone bypasses pointer-events:none
+      if (!idOk || !nameOk) {
+        if (!idOk)   { patientIdInput.classList.remove('input-error');   void patientIdInput.offsetWidth;   patientIdInput.classList.add('input-error');   patientIdInput.focus(); }
+        if (!nameOk) { patientNameInput.classList.remove('input-error'); void patientNameInput.offsetWidth; patientNameInput.classList.add('input-error'); if (idOk) patientNameInput.focus(); }
+        return;
+      }
+      startRecording();
+    });
     stopRecordBtn.addEventListener('click', stopRecording);
     newRecordingBtn.addEventListener('click', () => {
       clearLogs();
       document.getElementById('differentials-card').style.display = 'none';
       document.getElementById('differentials-list').innerHTML = '';
-      document.getElementById('patient-id-input').value = '';
-      if (patientNameInput) patientNameInput.value = '';
+      // Keep patient ID and name — same session, likely same patient.
+      // Doctor can manually clear/change them if needed.
       showState(1);
+      // Re-run validation so button state reflects kept values
+      validatePatientFields();
     });
     copyNoteBtn.addEventListener('click', copyNote);
+
+    // Run validation once on load so the button starts in the correct state
+    validatePatientFields();
   </script>
 </body>
 </html>
