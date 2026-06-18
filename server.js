@@ -111,12 +111,16 @@ async function getTranscodedAudioBuffer(inputBuffer) {
 
 const truncate = (str, n) => str.length > n ? str.slice(0, n) + '...' : str;
 
-async function complete(prompt) {
+async function complete(prompt, maxTokens = null) {
   const start = Date.now();
-  const result = await qvac.completion({
+  const completionOptions = {
     modelId: medgemmaId,
     history: [{ role: 'user', content: prompt }]
-  });
+  };
+  if (maxTokens) {
+    completionOptions.generationParams = { predict: maxTokens };
+  }
+  const result = await qvac.completion(completionOptions);
   const text = await result.text;
   logInference('completion', medgemmaId, Date.now() - start, prompt.length, text.length);
   return text;
@@ -234,7 +238,7 @@ You MUST return your response strictly as a valid JSON object matching this stru
   }
 
   console.log("Starting combined SOAP note & entity extraction inference call...");
-  const combinedOutput = await complete(`${systemPrompt}\n\n${userPrompt}`);
+  const combinedOutput = await complete(`${systemPrompt}\n\n${userPrompt}`, 600);
   console.log("Combined inference call complete.");
 
   let soap = '';
@@ -293,7 +297,10 @@ async function init() {
     console.log('Loading MedGemma model...');
     medgemmaId = await qvac.loadModel({
       modelSrc: qvac.MEDGEMMA_4B_IT_Q4_1.src,
-      modelType: 'llamacpp-completion'
+      modelType: 'llamacpp-completion',
+      modelConfig: {
+        ctx_size: 2048
+      }
     });
     console.log('MedGemma loaded successfully:', medgemmaId);
 
@@ -440,7 +447,7 @@ app.post('/extract', async (req, res) => {
 
   llmQueue.add(async () => {
     try {
-      const extracted = await complete(`Extract all medical entities from this transcript. Return JSON only with fields: symptoms, medications, vitals, allergies, history. Transcript: "${truncate(transcript, 600)}"`);
+      const extracted = await complete(`Extract all medical entities from this transcript. Return JSON only with fields: symptoms, medications, vitals, allergies, history. Transcript: "${truncate(transcript, 600)}"`, 300);
       res.json({ extracted });
     } catch (e) {
       res.status(500).json({ error: e.message });
@@ -454,7 +461,7 @@ app.post('/soap', async (req, res) => {
 
   llmQueue.add(async () => {
     try {
-      const soap = await complete(`Using these medical entities, generate a structured SOAP note. Be concise. Entities: ${truncate(extracted, 800)}`);
+      const soap = await complete(`Using these medical entities, generate a structured SOAP note. Be concise. Entities: ${truncate(extracted, 800)}`, 400);
       res.json({ soap });
     } catch (e) {
       res.status(500).json({ error: e.message });
@@ -468,7 +475,7 @@ app.post('/audit-only', async (req, res) => {
 
   llmQueue.add(async () => {
     try {
-      const audit = await complete(`Review this SOAP note. Return JSON only with: score (0-100), missing_fields (array), recommendations (array). SOAP note: ${truncate(soap, 1200)}`);
+      const audit = await complete(`Review this SOAP note. Return JSON only with: score (0-100), missing_fields (array), recommendations (array). SOAP note: ${truncate(soap, 1200)}`, 300);
       res.json({ audit });
     } catch (e) {
       res.status(500).json({ error: e.message });
@@ -482,7 +489,7 @@ app.post('/differentials', async (req, res) => {
 
   llmQueue.add(async () => {
     try {
-      const differentials = await complete(`Based on this SOAP note, suggest 3 potential differential diagnoses with brief reasoning (1-2 sentences each). Present them strictly as clinical prompts for the doctor's review. SOAP note: ${truncate(soap, 1200)}`);
+      const differentials = await complete(`Based on this SOAP note, suggest 3 potential differential diagnoses with brief reasoning (1-2 sentences each). Present them strictly as clinical prompts for the doctor's review. SOAP note: ${truncate(soap, 1200)}`, 250);
       res.json({ differentials });
     } catch (e) {
       res.status(500).json({ error: e.message });
@@ -497,7 +504,7 @@ app.post('/differentials/questions', async (req, res) => {
   llmQueue.add(async () => {
     try {
       const prompt = `Based on this SOAP note, generate 3 specific, high-yield follow-up questions the doctor should ask the patient to rule out or confirm the diagnosis: "${diagnosis}". SOAP note: ${truncate(soap, 1000)}`;
-      const questions = await complete(prompt);
+      const questions = await complete(prompt, 250);
       res.json({ questions });
     } catch (e) {
       res.status(500).json({ error: e.message });
