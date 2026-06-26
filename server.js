@@ -148,13 +148,13 @@ function runRuleBasedAudit(soap, extracted, patientName = '') {
 
   // 3. Check SOAP sections in the text
   const cleanSoap = soap.toLowerCase();
-  
+
   if (!cleanSoap.includes("subjective") && !/\b(s|subj)\b\s*:/i.test(soap)) {
     missing_fields.push("Subjective (S) Notes");
     score -= 20;
     recommendations.push("Document the patient's chief complaint and history of present illness.");
   }
-  
+
   if (!cleanSoap.includes("objective") && !/\b(o|obj)\b\s*:/i.test(soap)) {
     missing_fields.push("Objective (O) / Exam Findings");
     score -= 20;
@@ -208,7 +208,7 @@ async function runPipeline(transcript, patientId = null, patientName = null) {
         historicalContext = filtered[0].content;
         console.log(`Retrieved RAG context for patient ${patientId}:\n${historicalContext}`);
       } else {
-        console.log(`No historical context found for patient ${patientId} (${(searchResult||[]).length} raw results, none matched prefix).`);
+        console.log(`No historical context found for patient ${patientId} (${(searchResult || []).length} raw results, none matched prefix).`);
       }
     } catch (e) {
       console.error('RAG search during pipeline failed:', e);
@@ -246,7 +246,7 @@ Your response MUST match this exact schema:
   try {
     let cleanJson = combinedOutput.trim();
     cleanJson = cleanJson.replace(/```json|```/g, '').trim();
-    
+
     let parsed;
     // Check if it returned two adjacent JSON blocks (e.g. } {) and merge them if so
     const arrayFormat = '[' + cleanJson.replace(/}\s*{/g, '},{') + ']';
@@ -262,29 +262,25 @@ Your response MUST match this exact schema:
       }
       parsed = JSON.parse(cleanJson);
     }
-    
+
     soap = parsed.soap || '';
     if (parsed.extracted) {
       extObj = parsed.extracted;
     }
   } catch (parseErr) {
     console.error("Failed to parse combined JSON output, trying simple text fallback:", parseErr);
-    
+
     // Attempt robust regex extraction of the SOAP content
     const soapRegex = /"soap"\s*:\s*"((?:[^"\\]|\\.)*)"/s;
     const match = combinedOutput.match(soapRegex);
     if (match) {
       let soapVal = match[1];
-      soap = soapVal
-        .replace(/\\n/g, '\n')
-        .replace(/\\r/g, '\r')
-        .replace(/\\t/g, '\t')
-        .replace(/\\"/g, '"')
-        .replace(/\\\\/g, '\\');
+      soap = soapVal.replace(/\\(.)/g, (_, c) =>
+        c === 'n' ? '\n' : c === 'r' ? '\r' : c === 't' ? '\t' : c);
     } else {
       soap = combinedOutput;
     }
-    
+
     // Simple text extraction heuristics as fallback
     const symptomsMatch = combinedOutput.match(/symptoms?\s*:\s*([^]*?)(?=\n\n|\n[A-Z]|$)/i);
     if (symptomsMatch) extObj.symptoms = symptomsMatch[1].split(',').map(s => s.trim()).filter(Boolean);
@@ -374,7 +370,7 @@ async function init() {
 
 app.post('/transcribe', async (req, res) => {
   const contentType = req.headers['content-type'] || '';
-  
+
   if (contentType.includes('application/octet-stream')) {
     const chunks = [];
     req.on('data', (chunk) => chunks.push(chunk));
